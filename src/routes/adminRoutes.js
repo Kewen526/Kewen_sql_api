@@ -107,7 +107,7 @@ export function registerAdminRoutes(fastify) {
       tags: ['Admin'],
       body: {
         type: 'object',
-        required: ['name', 'path', 'groupId', 'datasourceId', 'sqlText'],
+        required: ['name', 'path', 'groupId', 'datasourceId'],
         properties: {
           name: { type: 'string' },
           path: { type: 'string' },
@@ -116,7 +116,9 @@ export function registerAdminRoutes(fastify) {
           groupId: { type: 'string' },
           datasourceId: { type: 'string' },
           sqlText: { type: 'string' },
+          sqlList: { type: 'array' },
           params: { type: 'array' },
+          testParams: { type: 'object' },
           transaction: { type: 'number' }
         }
       }
@@ -308,6 +310,62 @@ export function registerAdminRoutes(fastify) {
     }
   });
 
+  // 临时测试执行 API（不需要保存，直接测试SQL）
+  fastify.post('/admin/test-execute', {
+    schema: {
+      summary: '临时测试执行SQL（无需保存API）',
+      tags: ['Admin'],
+      body: {
+        type: 'object',
+        required: ['datasourceId', 'sqlList'],
+        properties: {
+          datasourceId: { type: 'string' },
+          sqlList: { type: 'array' },
+          testParams: { type: 'object' },
+          transaction: { type: 'number' }
+        }
+      }
+    },
+    handler: async (request, reply) => {
+      try {
+        const { datasourceId, sqlList, testParams = {}, transaction = 0 } = request.body;
+
+        // 构造临时task配置
+        const tempTask = [{
+          taskType: 1,
+          datasourceId,
+          sqlList: sqlList.map(sql => ({
+            transformPlugin: null,
+            transformPluginParam: null,
+            sqlText: sql.sqlText || sql,
+            id: sql.id || 'temp'
+          })),
+          transaction
+        }];
+
+        // 动态导入 executor
+        const { executeApiTask } = await import('../database/executor.js');
+
+        // 执行SQL
+        const result = await executeApiTask(tempTask, testParams);
+
+        return {
+          success: true,
+          message: '测试执行成功',
+          data: result,
+          executedWith: testParams
+        };
+      } catch (error) {
+        console.error('测试执行失败:', error);
+        return reply.code(500).send({
+          success: false,
+          message: '测试执行失败: ' + error.message,
+          error: error.stack
+        });
+      }
+    }
+  });
+
   // 测试执行 API（使用配置的测试参数）
   fastify.post('/admin/apis/:id/test-execute', {
     schema: {
@@ -387,6 +445,7 @@ export function registerAdminRoutes(fastify) {
   console.log('  ✓ POST   /admin/apis/:apiId/sql                             添加SQL');
   console.log('  ✓ PUT    /admin/apis/:apiId/sql/:sqlId                      更新SQL');
   console.log('  ✓ DELETE /admin/apis/:apiId/sql/:sqlId                      删除SQL');
+  console.log('  ✓ POST   /admin/test-execute                                临时测试执行SQL');
   console.log('  ✓ POST   /admin/apis/:id/test-execute                       测试执行API');
   console.log('  ✓ GET    /admin/groups                                      获取分组');
   console.log('  ✓ GET    /admin/datasources                                 获取数据源');
