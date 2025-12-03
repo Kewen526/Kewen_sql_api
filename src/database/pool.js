@@ -31,7 +31,7 @@ class DatabasePoolManager {
         database: config[`${envPrefix}_DATABASE`],
 
         // 连接池配置 - 优化内存和并发
-        connectionLimit: parseInt(config[`${envPrefix}_POOL_MAX`]) || 10,
+        connectionLimit: parseInt(config[`${envPrefix}_POOL_MAX`]) || 30, // 增加到30以支持多SQL并发
         queueLimit: 0, // 不限制队列，避免拒绝请求
         waitForConnections: true,
         enableKeepAlive: true,

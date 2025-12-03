@@ -71,9 +71,7 @@ export function registerAdminRoutes(fastify) {
           });
         }
 
-        const task = JSON.parse(api.task || '[{}]')[0] || {};
-        const params = JSON.parse(api.params || '[]');
-
+        // getApiById 已经返回解析后的数据（包含 sqlList, datasourceId, transaction 等）
         return {
           success: true,
           data: {
@@ -83,10 +81,13 @@ export function registerAdminRoutes(fastify) {
             note: api.note,
             contentType: api.contentType,
             groupId: api.groupId,
-            params,
-            datasourceId: task.datasourceId,
-            transaction: task.transaction,
-            sqlText: task.sqlList?.[0]?.sqlText || ''
+            params: api.paramsParsed || [],
+            datasourceId: api.datasourceId,
+            transaction: api.transaction,
+            sqlList: api.sqlList || [],  // ✅ 返回完整的 SQL 列表
+            status: api.status,
+            createTime: api.createTime,
+            updateTime: api.updateTime
           }
         };
       } catch (error) {

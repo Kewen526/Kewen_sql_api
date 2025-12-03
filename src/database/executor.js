@@ -75,26 +75,38 @@ async function executeTransaction(datasourceId, sqlList, requestParams) {
 }
 
 /**
- * 执行非事务（每个SQL独立执行）
+ * 执行非事务（多个SQL在同一连接中顺序执行，但不开启事务）
+ *
+ * 重要：即使不开启事务，也必须在同一个连接中执行所有SQL
+ * 原因：MySQL会话变量（@variable）只在同一连接的同一会话中有效
+ * 例如：SET @v_id := NULL; SELECT ... INTO @v_id; 必须在同一连接中
  */
 async function executeNonTransaction(datasourceId, sqlList, requestParams) {
   const pool = poolManager.getPool(datasourceId);
+  const connection = await pool.getConnection();  // ✅ 获取一个连接
 
-  let lastResult = null;
+  try {
+    let lastResult = null;
 
-  for (const sqlItem of sqlList) {
-    const { sqlText } = sqlItem;
+    for (const sqlItem of sqlList) {
+      const { sqlText } = sqlItem;
 
-    // 解析SQL和参数
-    const { sql, params } = parseSql(sqlText, requestParams);
+      // 解析SQL和参数
+      const { sql, params } = parseSql(sqlText, requestParams);
 
-    // 执行SQL
-    const [rows] = await pool.execute(sql, params);
-    lastResult = rows;
+      // ✅ 在同一个连接上执行所有SQL（保证@变量有效）
+      const [rows] = await connection.execute(sql, params);
+      lastResult = rows;
+    }
+
+    // 返回最后一个SQL的结果
+    return formatResult(lastResult);
+  } catch (error) {
+    console.error(`❌ SQL执行失败 [${datasourceId}]:`, error.message);
+    throw error;
+  } finally {
+    connection.release();  // ✅ 最后释放连接
   }
-
-  // 返回最后一个SQL的结果
-  return formatResult(lastResult);
 }
 
 /**
