@@ -957,6 +957,13 @@
         return;
       }
 
+      // 验证路径是否重复
+      const duplicateApi = allApis.find(api => api.path === path && api.id !== id);
+      if (duplicateApi) {
+        alert(`❌ 路径重复！\n\n路径 "${path}" 已被 API "${duplicateApi.name}" 使用。\n\n请使用其他路径。`);
+        return;
+      }
+
       // 验证至少有一个 SQL
       if (currentSqlTabs.length === 0 || !currentSqlTabs[0].sqlText.trim()) {
         alert('请至少填写一个 SQL 语句');
@@ -1008,14 +1015,15 @@
 
         if (!response.ok) {
           const error = await response.json();
-          throw new Error(error.error || '保存失败');
+          throw new Error(error.message || error.error || '保存失败');
         }
 
         alert(id ? '✅ API 更新成功！' : '✅ API 创建成功！');
         closeModal();
         await loadApis();
       } catch (error) {
-        alert('❌ 保存失败: ' + error.message);
+        // 显示详细的错误信息
+        alert('❌ 保存失败\n\n' + error.message);
       }
     }
 

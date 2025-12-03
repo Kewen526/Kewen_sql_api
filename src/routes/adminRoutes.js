@@ -133,6 +133,14 @@ export function registerAdminRoutes(fastify) {
           data: newApi
         };
       } catch (error) {
+        // 路径重复错误返回 400
+        if (error.message.includes('已被') && error.message.includes('占用')) {
+          return reply.code(400).send({
+            success: false,
+            message: error.message
+          });
+        }
+
         return reply.code(500).send({
           success: false,
           message: error.message
@@ -157,6 +165,22 @@ export function registerAdminRoutes(fastify) {
           data: updatedApi
         };
       } catch (error) {
+        // 路径重复错误返回 400
+        if (error.message.includes('已被') && error.message.includes('占用')) {
+          return reply.code(400).send({
+            success: false,
+            message: error.message
+          });
+        }
+
+        // API不存在返回 404
+        if (error.message === 'API不存在') {
+          return reply.code(404).send({
+            success: false,
+            message: error.message
+          });
+        }
+
         return reply.code(500).send({
           success: false,
           message: error.message
