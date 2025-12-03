@@ -565,14 +565,15 @@
           </div>
 
           <div class="form-group">
-            <label>参数定义（每行一个，格式：参数名:类型:说明）</label>
-            <textarea id="apiParams" placeholder="id:int:产品ID&#10;name:string:产品名称" rows="4"></textarea>
+            <label>参数定义（可选，每行一个，格式：参数名:类型:说明）</label>
+            <textarea id="apiParams" placeholder="id:int:产品ID&#10;name:string:产品名称&#10;&#10;如果SQL不需要参数，可以留空"></textarea>
+            <small style="color: #6c757d; font-size: 12px;">💡 提示：如果API是GET请求或SQL不需要动态参数，可以不填写</small>
           </div>
 
           <div class="form-group">
-            <label>测试参数配置（JSON格式，用于测试执行）</label>
-            <textarea id="apiTestParams" placeholder='{"title": "测试标题", "shop_num": "12345", "sku": "67890"}' rows="6" style="font-family: monospace;"></textarea>
-            <small style="color: #6c757d; font-size: 12px;">💡 提示：填写JSON格式的测试参数示例，点击"测试执行"按钮可直接测试SQL</small>
+            <label>测试参数配置（可选，JSON格式，用于测试执行）</label>
+            <textarea id="apiTestParams" placeholder='{"title": "测试标题", "shop_num": "12345", "sku": "67890"}&#10;&#10;如果不需要参数，可以留空或填写 {}' rows="6" style="font-family: monospace;"></textarea>
+            <small style="color: #6c757d; font-size: 12px;">💡 提示：填写JSON格式的测试参数示例，点击"测试执行"按钮可直接测试SQL（新增时也可测试）</small>
           </div>
 
           <!-- 测试结果展示区域 -->
@@ -806,8 +807,8 @@
       activeSqlTabIndex = 0;
       renderSqlTabs();
 
-      // 隐藏测试执行按钮（创建模式不可测试）
-      document.getElementById('testExecuteBtn').style.display = 'none';
+      // 显示测试执行按钮（支持临时测试）
+      document.getElementById('testExecuteBtn').style.display = 'inline-flex';
       document.getElementById('testResultContainer').style.display = 'none';
 
       document.getElementById('apiModal').classList.add('active');
@@ -1081,9 +1082,18 @@
     async function testExecuteApi() {
       const id = document.getElementById('apiId').value;
       const testParamsText = document.getElementById('apiTestParams').value;
+      const datasourceId = document.getElementById('apiDatasource').value;
+      const isTransaction = document.getElementById('apiTransaction').checked;
 
-      if (!id) {
-        alert('⚠️ 只有保存后的 API 才能进行测试执行');
+      // 验证必填字段
+      if (!datasourceId) {
+        alert('⚠️ 请先选择数据源');
+        return;
+      }
+
+      // 验证至少有一个 SQL
+      if (currentSqlTabs.length === 0 || !currentSqlTabs[0].sqlText.trim()) {
+        alert('⚠️ 请至少填写一个 SQL 语句');
         return;
       }
 
@@ -1106,13 +1116,33 @@
       resultElement.textContent = '⏳ 正在执行测试...';
 
       try {
-        const response = await fetch(`${API_BASE}/admin/apis/${id}/test-execute`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ testParams })
-        });
+        let response, result;
 
-        const result = await response.json();
+        if (id) {
+          // 编辑模式：使用已保存的API进行测试
+          response = await fetch(`${API_BASE}/admin/apis/${id}/test-execute`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ testParams })
+          });
+        } else {
+          // 新增模式：使用临时测试接口
+          response = await fetch(`${API_BASE}/admin/test-execute`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              datasourceId,
+              sqlList: currentSqlTabs.map(tab => ({
+                id: tab.id,
+                sqlText: tab.sqlText
+              })),
+              testParams,
+              transaction: isTransaction ? 1 : 0
+            })
+          });
+        }
+
+        result = await response.json();
 
         if (response.ok && result.success) {
           // 成功执行
