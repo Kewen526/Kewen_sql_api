@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kewen SQL API 接口文档</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+            background: #f5f7fa;
+            color: #333;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .header .subtitle {
+            opacity: 0.9;
+            font-size: 1rem;
+        }
+
+        .header .info {
+            margin-top: 1rem;
+            padding: 1rem;
+            background: rgba(255,255,255,0.1);
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+
+        .search-box {
+            padding: 2rem;
+            background: white;
+            margin: 2rem auto;
+            max-width: 1400px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 1rem;
+            font-size: 1rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        .search-input:focus {
+            border-color: #667eea;
+        }
+
+        .stats {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .stat-item {
+            padding: 0.5rem 1rem;
+            background: #f0f0f0;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            color: #666;
+        }
+
+        .stat-item strong {
+            color: #667eea;
+            margin-right: 0.3rem;
+        }
+
+        .api-list {
+            max-width: 1400px;
+            margin: 0 auto 2rem;
+            padding: 0 2rem;
+        }
+
+        .api-group {
+            margin-bottom: 2rem;
+        }
+
+        .group-header {
+            background: white;
+            padding: 1rem 1.5rem;
+            border-radius: 8px 8px 0 0;
+            border-left: 4px solid #667eea;
+            font-weight: bold;
+            font-size: 1.1rem;
+            color: #667eea;
+        }
+
+        .api-item {
+            background: white;
+            margin-bottom: 1rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            overflow: hidden;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .api-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+        }
+
+        .api-header {
+            padding: 1.5rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            background: linear-gradient(to right, #ffffff, #f8f9fa);
+        }
+
+        .api-method {
+            padding: 0.4rem 0.8rem;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 0.85rem;
+            min-width: 50px;
+            text-align: center;
+        }
+
+        .method-get {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+
+        .method-post {
+            background: #fff3e0;
+            color: #f57c00;
+        }
+
+        .api-path {
+            flex: 1;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.95rem;
+            color: #667eea;
+        }
+
+        .api-name {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .api-toggle {
+            color: #999;
+            font-size: 1.2rem;
+            transition: transform 0.3s;
+        }
+
+        .api-item.active .api-toggle {
+            transform: rotate(180deg);
+        }
+
+        .api-details {
+            display: none;
+            padding: 0 1.5rem 1.5rem;
+            background: #fafafa;
+        }
+
+        .api-item.active .api-details {
+            display: block;
+        }
+
+        .detail-section {
+            margin-bottom: 1.5rem;
+        }
+
+        .detail-title {
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 0.5rem;
+            font-size: 0.95rem;
+        }
+
+        .detail-content {
+            background: white;
+            padding: 1rem;
+            border-radius: 4px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .code-block {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 1rem;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.85rem;
+            overflow-x: auto;
+            white-space: pre;
+        }
+
+        .param-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .param-table th,
+        .param-table td {
+            padding: 0.8rem;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .param-table th {
+            background: #f5f5f5;
+            font-weight: bold;
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .param-table td {
+            font-size: 0.9rem;
+        }
+
+        .param-type {
+            display: inline-block;
+            padding: 0.2rem 0.6rem;
+            background: #e8eaf6;
+            color: #5c6bc0;
+            border-radius: 3px;
+            font-size: 0.8rem;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.3rem 0.6rem;
+            border-radius: 3px;
+            font-size: 0.8rem;
+            margin-left: 0.5rem;
+        }
+
+        .badge-transaction {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .copy-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            margin-top: 0.5rem;
+            transition: background 0.2s;
+        }
+
+        .copy-btn:hover {
+            background: #5568d3;
+        }
+
+        .copy-btn:active {
+            background: #4c5ed1;
+        }
+
+        .no-results {
+            text-align: center;
+            padding: 3rem;
+            color: #999;
+            font-size: 1.1rem;
+        }
+
+        .footer {
+            text-align: center;
+            padding: 2rem;
+            color: #999;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <h1>🚀 Kewen SQL API 接口文档</h1>
+            <div class="subtitle">高性能 SQL API 服务器 - 完全替代 DBAPI</div>
+            <div class="info">
+                <div><strong>服务地址：</strong>http://YOUR_SERVER_IP:3000</div>
+                <div><strong>版本：</strong>1.0.0</div>
+                <div><strong>总接口数：</strong>111 个</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="search-box">
+        <input type="text" id="searchInput" class="search-input" placeholder="🔍 搜索接口名称、路径或功能...">
+        <div class="stats">
+            <div class="stat-item"><strong>产品相关</strong> 43 个</div>
+            <div class="stat-item"><strong>采购相关</strong> 41 个</div>
+            <div class="stat-item"><strong>任务相关</strong> 27 个</div>
+        </div>
+    </div>
+
+    <div class="api-list" id="apiList">
+        <!-- API 列表将通过 JavaScript 动态生成 -->
+    </div>
+
+    <div class="no-results" id="noResults" style="display: none;">
+        未找到匹配的接口
+    </div>
+
+    <div class="footer">
+        © 2025 Kewen SQL API Server | Powered by Fastify + MySQL2
+    </div>
+
+    <script>
+        // API 配置数据（从后端加载）
+        const apiBaseUrl = 'http://YOUR_SERVER_IP:3000';
+
+        // 加载 API 配置
+        async function loadApiConfig() {
+            try {
+                // 这里需要从服务器加载 api_config.json
+                // 为了演示，我们使用占位数据
+                return generateSampleApis();
+            } catch (error) {
+                console.error('加载API配置失败:', error);
+                return [];
+            }
+        }
+
+        // 生成示例 API（实际应从 api_config.json 加载）
+        function generateSampleApis() {
+            return [
+                {
+                    name: '获取产品详情所有数据',
+                    path: 'get_product_info',
+                    method: 'POST',
+                    contentType: 'application/json',
+                    group: '产品相关',
+                    params: [{name: 'id', type: 'string', note: '产品ID'}],
+                    example: {id: '455226'},
+                    note: '根据产品ID获取产品的所有详细信息',
+                    transaction: true
+                },
+                // 更多 API...
+            ];
+        }
+
+        // 渲染 API 列表
+        function renderApiList(apis) {
+            const apiList = document.getElementById('apiList');
+            apiList.innerHTML = '';
+
+            // 按组分类
+            const groups = {};
+            apis.forEach(api => {
+                if (!groups[api.group]) {
+                    groups[api.group] = [];
+                }
+                groups[api.group].push(api);
+            });
+
+            // 渲染每个组
+            Object.keys(groups).forEach(groupName => {
+                const groupDiv = document.createElement('div');
+                groupDiv.className = 'api-group';
+
+                const groupHeader = document.createElement('div');
+                groupHeader.className = 'group-header';
+                groupHeader.textContent = groupName;
+                groupDiv.appendChild(groupHeader);
+
+                groups[groupName].forEach(api => {
+                    const apiItem = createApiItem(api);
+                    groupDiv.appendChild(apiItem);
+                });
+
+                apiList.appendChild(groupDiv);
+            });
+        }
+
+        // 创建单个 API 项
+        function createApiItem(api) {
+            const div = document.createElement('div');
+            div.className = 'api-item';
+
+            const methodClass = api.method === 'GET' ? 'method-get' : 'method-post';
+
+            div.innerHTML = `
+                <div class="api-header">
+                    <span class="api-method ${methodClass}">${api.method}</span>
+                    <span class="api-path">/${api.path}</span>
+                    <span class="api-name">${api.name}</span>
+                    ${api.transaction ? '<span class="badge badge-transaction">事务</span>' : ''}
+                    <span class="api-toggle">▼</span>
+                </div>
+                <div class="api-details">
+                    <div class="detail-section">
+                        <div class="detail-title">📝 接口说明</div>
+                        <div class="detail-content">${api.note || api.name}</div>
+                    </div>
+
+                    <div class="detail-section">
+                        <div class="detail-title">🌐 完整地址</div>
+                        <div class="detail-content">
+                            <div class="code-block">${apiBaseUrl}/${api.path}</div>
+                            <button class="copy-btn" onclick="copyToClipboard('${apiBaseUrl}/${api.path}')">复制地址</button>
+                        </div>
+                    </div>
+
+                    <div class="detail-section">
+                        <div class="detail-title">📋 Content-Type</div>
+                        <div class="detail-content">${api.contentType}</div>
+                    </div>
+
+                    ${api.params && api.params.length > 0 ? `
+                    <div class="detail-section">
+                        <div class="detail-title">📌 请求参数</div>
+                        <div class="detail-content">
+                            <table class="param-table">
+                                <thead>
+                                    <tr>
+                                        <th>参数名</th>
+                                        <th>类型</th>
+                                        <th>说明</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${api.params.map(p => `
+                                        <tr>
+                                            <td><code>${p.name}</code></td>
+                                            <td><span class="param-type">${p.type}</span></td>
+                                            <td>${p.note || '-'}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    ` : ''}
+
+                    <div class="detail-section">
+                        <div class="detail-title">💻 请求示例 (curl)</div>
+                        <div class="detail-content">
+                            <div class="code-block">${generateCurlExample(api)}</div>
+                            <button class="copy-btn" onclick="copyToClipboard(\`${generateCurlExample(api).replace(/`/g, '\\`')}\`)">复制命令</button>
+                        </div>
+                    </div>
+
+                    <div class="detail-section">
+                        <div class="detail-title">✅ 响应示例</div>
+                        <div class="detail-content">
+                            <div class="code-block">{
+  "success": true,
+  "data": {
+    // 查询结果数据
+  }
+}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // 添加点击事件
+            div.querySelector('.api-header').addEventListener('click', () => {
+                div.classList.toggle('active');
+            });
+
+            return div;
+        }
+
+        // 生成 curl 示例
+        function generateCurlExample(api) {
+            let curl = `curl -X ${api.method} ${apiBaseUrl}/${api.path}`;
+
+            if (api.contentType) {
+                curl += ` \\\n  -H "Content-Type: ${api.contentType}"`;
+            }
+
+            if (api.example && Object.keys(api.example).length > 0) {
+                if (api.contentType === 'application/json') {
+                    curl += ` \\\n  -d '${JSON.stringify(api.example, null, 2)}'`;
+                } else {
+                    const params = Object.entries(api.example).map(([k, v]) => `${k}=${v}`).join('&');
+                    curl += ` \\\n  -d "${params}"`;
+                }
+            }
+
+            return curl;
+        }
+
+        // 复制到剪贴板
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                alert('已复制到剪贴板！');
+            }).catch(err => {
+                console.error('复制失败:', err);
+            });
+        }
+
+        // 搜索功能
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            const keyword = e.target.value.toLowerCase();
+            const items = document.querySelectorAll('.api-item');
+            let visibleCount = 0;
+
+            items.forEach(item => {
+                const text = item.textContent.toLowerCase();
+                if (text.includes(keyword)) {
+                    item.style.display = '';
+                    visibleCount++;
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+
+            document.getElementById('noResults').style.display = visibleCount === 0 ? 'block' : 'none';
+        });
+
+        // 初始化
+        loadApiConfig().then(apis => {
+            renderApiList(apis);
+        });
+    </script>
+</body>
+</html>
