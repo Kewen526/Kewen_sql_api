@@ -326,6 +326,29 @@
       padding: 20px;
       border-radius: 8px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      cursor: pointer;
+      transition: all 0.3s;
+      position: relative;
+    }
+
+    .stat-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+    }
+
+    .stat-card.active {
+      background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+      box-shadow: 0 8px 20px rgba(40, 167, 69, 0.4);
+      transform: scale(1.05);
+    }
+
+    .stat-card.active::before {
+      content: '✓';
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      font-size: 24px;
+      font-weight: bold;
     }
 
     .stat-card h3 {
@@ -561,6 +584,7 @@
     let datasources = [];
     let currentSqlTabs = [];
     let activeSqlTabIndex = 0;
+    let activeGroupFilter = 'all';  // 当前选中的分组筛选 ('all' 或分组ID)
 
     // 页面加载时初始化
     window.onload = async () => {
@@ -641,24 +665,44 @@
     function updateStats() {
       const statsContainer = document.getElementById('stats');
       const groupCounts = {};
+      const groupIds = {};  // 存储分组名称对应的ID
 
       allApis.forEach(api => {
         const groupName = getGroupName(api.groupId);
         groupCounts[groupName] = (groupCounts[groupName] || 0) + 1;
+        groupIds[groupName] = api.groupId;
       });
 
       statsContainer.innerHTML = `
-        <div class="stat-card">
+        <div class="stat-card ${activeGroupFilter === 'all' ? 'active' : ''}" onclick="filterByGroup('all')">
           <h3>总接口数</h3>
           <div class="number">${allApis.length}</div>
         </div>
         ${Object.entries(groupCounts).map(([name, count]) => `
-          <div class="stat-card">
+          <div class="stat-card ${activeGroupFilter === groupIds[name] ? 'active' : ''}"
+               onclick="filterByGroup('${groupIds[name]}')">
             <h3>${name}</h3>
             <div class="number">${count}</div>
           </div>
         `).join('')}
       `;
+    }
+
+    // 按分组筛选API
+    function filterByGroup(groupId) {
+      activeGroupFilter = groupId;
+
+      if (groupId === 'all') {
+        // 显示所有API
+        renderApis(allApis);
+      } else {
+        // 筛选指定分组的API
+        const filtered = allApis.filter(api => api.groupId === groupId);
+        renderApis(filtered);
+      }
+
+      // 更新统计面板（高亮当前选中的分组）
+      updateStats();
     }
 
     // 渲染 API 列表
