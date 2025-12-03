@@ -568,10 +568,25 @@
             <label>参数定义（每行一个，格式：参数名:类型:说明）</label>
             <textarea id="apiParams" placeholder="id:int:产品ID&#10;name:string:产品名称" rows="4"></textarea>
           </div>
+
+          <div class="form-group">
+            <label>测试参数配置（JSON格式，用于测试执行）</label>
+            <textarea id="apiTestParams" placeholder='{"title": "测试标题", "shop_num": "12345", "sku": "67890"}' rows="6" style="font-family: monospace;"></textarea>
+            <small style="color: #6c757d; font-size: 12px;">💡 提示：填写JSON格式的测试参数示例，点击"测试执行"按钮可直接测试SQL</small>
+          </div>
+
+          <!-- 测试结果展示区域 -->
+          <div id="testResultContainer" style="display: none; margin-top: 20px;">
+            <label style="font-weight: 600; color: #495057; font-size: 14px; margin-bottom: 10px; display: block;">测试执行结果</label>
+            <div id="testResult" style="background: #f8f9fa; border: 2px solid #dee2e6; border-radius: 6px; padding: 15px; max-height: 400px; overflow-y: auto;">
+              <pre style="margin: 0; font-family: monospace; font-size: 12px; white-space: pre-wrap; word-wrap: break-word;"></pre>
+            </div>
+          </div>
         </form>
       </div>
       <div class="modal-footer">
         <button class="btn" onclick="closeModal()">取消</button>
+        <button class="btn btn-warning" onclick="testExecuteApi()" id="testExecuteBtn" style="display: none;">🧪 测试执行</button>
         <button class="btn btn-primary" onclick="saveApi()">保存</button>
       </div>
     </div>
@@ -791,6 +806,10 @@
       activeSqlTabIndex = 0;
       renderSqlTabs();
 
+      // 隐藏测试执行按钮（创建模式不可测试）
+      document.getElementById('testExecuteBtn').style.display = 'none';
+      document.getElementById('testResultContainer').style.display = 'none';
+
       document.getElementById('apiModal').classList.add('active');
     }
 
@@ -830,6 +849,17 @@
         } else {
           document.getElementById('apiParams').value = '';
         }
+
+        // 加载测试参数
+        if (api.testParams && Object.keys(api.testParams).length > 0) {
+          document.getElementById('apiTestParams').value = JSON.stringify(api.testParams, null, 2);
+        } else {
+          document.getElementById('apiTestParams').value = '';
+        }
+
+        // 显示测试执行按钮（仅编辑模式）
+        document.getElementById('testExecuteBtn').style.display = 'inline-flex';
+        document.getElementById('testResultContainer').style.display = 'none';
 
         document.getElementById('apiModal').classList.add('active');
       } catch (error) {
@@ -918,6 +948,7 @@
       const contentType = document.getElementById('apiContentType').value;
       const isTransaction = document.getElementById('apiTransaction').checked;
       const paramsText = document.getElementById('apiParams').value;
+      const testParamsText = document.getElementById('apiTestParams').value;
 
       // 验证必填字段
       if (!name || !path || !groupId || !datasourceId) {
@@ -937,6 +968,17 @@
         return { name, type, note: note || '' };
       }) : [];
 
+      // 解析测试参数
+      let testParams = {};
+      if (testParamsText.trim()) {
+        try {
+          testParams = JSON.parse(testParamsText);
+        } catch (e) {
+          alert('❌ 测试参数 JSON 格式错误: ' + e.message);
+          return;
+        }
+      }
+
       const apiData = {
         name,
         path,
@@ -946,6 +988,7 @@
         contentType,
         transaction: isTransaction ? 1 : 0,
         params,
+        testParams,
         sqlList: currentSqlTabs.map(tab => ({
           id: tab.id,
           sqlText: tab.sqlText
@@ -1033,6 +1076,70 @@
         closeModal();
       }
     });
+
+    // 测试执行 API
+    async function testExecuteApi() {
+      const id = document.getElementById('apiId').value;
+      const testParamsText = document.getElementById('apiTestParams').value;
+
+      if (!id) {
+        alert('⚠️ 只有保存后的 API 才能进行测试执行');
+        return;
+      }
+
+      // 解析测试参数
+      let testParams = {};
+      if (testParamsText.trim()) {
+        try {
+          testParams = JSON.parse(testParamsText);
+        } catch (e) {
+          alert('❌ 测试参数 JSON 格式错误: ' + e.message);
+          return;
+        }
+      }
+
+      // 显示加载状态
+      const resultContainer = document.getElementById('testResultContainer');
+      const resultElement = document.getElementById('testResult').querySelector('pre');
+
+      resultContainer.style.display = 'block';
+      resultElement.textContent = '⏳ 正在执行测试...';
+
+      try {
+        const response = await fetch(`${API_BASE}/admin/apis/${id}/test-execute`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ testParams })
+        });
+
+        const result = await response.json();
+
+        if (response.ok && result.success) {
+          // 成功执行
+          resultElement.style.color = '#28a745';
+          resultElement.textContent =
+            `✅ 测试执行成功！\n\n` +
+            `执行参数：\n${JSON.stringify(result.executedWith, null, 2)}\n\n` +
+            `返回结果：\n${JSON.stringify(result.data, null, 2)}`;
+        } else {
+          // 执行失败
+          resultElement.style.color = '#dc3545';
+          resultElement.textContent =
+            `❌ 测试执行失败\n\n` +
+            `错误信息：${result.message}\n\n` +
+            (result.error ? `详细错误：\n${result.error}` : '');
+        }
+      } catch (error) {
+        resultElement.style.color = '#dc3545';
+        resultElement.textContent =
+          `❌ 请求失败\n\n` +
+          `错误信息：${error.message}\n\n` +
+          `请检查：\n` +
+          `1. 服务器是否正常运行\n` +
+          `2. 网络连接是否正常\n` +
+          `3. SQL语句是否正确`;
+      }
+    }
 
     // 生成随机 ID
     function generateId() {

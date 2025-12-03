@@ -85,6 +85,7 @@ export function registerAdminRoutes(fastify) {
             datasourceId: api.datasourceId,
             transaction: api.transaction,
             sqlList: api.sqlList || [],  // ✅ 返回完整的 SQL 列表
+            testParams: api.testParamsParsed || {},  // ✅ 返回测试参数
             status: api.status,
             createTime: api.createTime,
             updateTime: api.updateTime
@@ -307,6 +308,52 @@ export function registerAdminRoutes(fastify) {
     }
   });
 
+  // 测试执行 API（使用配置的测试参数）
+  fastify.post('/admin/apis/:id/test-execute', {
+    schema: {
+      summary: '测试执行API（使用测试参数）',
+      tags: ['Admin']
+    },
+    handler: async (request, reply) => {
+      try {
+        const { id } = request.params;
+        const { testParams: overrideParams } = request.body || {};
+
+        // 获取API配置
+        const api = await configManager.getApiById(id);
+        if (!api) {
+          return reply.code(404).send({
+            success: false,
+            message: 'API不存在'
+          });
+        }
+
+        // 使用传入的参数或配置的测试参数
+        const testParams = overrideParams || api.testParamsParsed || {};
+
+        // 动态导入 executor（避免循环依赖）
+        const { executeApiTask } = await import('../database/executor.js');
+
+        // 执行SQL
+        const result = await executeApiTask(api.task, testParams);
+
+        return {
+          success: true,
+          message: '测试执行成功',
+          data: result,
+          executedWith: testParams
+        };
+      } catch (error) {
+        console.error('测试执行失败:', error);
+        return reply.code(500).send({
+          success: false,
+          message: '测试执行失败: ' + error.message,
+          error: error.stack
+        });
+      }
+    }
+  });
+
   // 重启服务器（使用 PM2）
   fastify.post('/admin/restart', {
     schema: {
@@ -340,6 +387,7 @@ export function registerAdminRoutes(fastify) {
   console.log('  ✓ POST   /admin/apis/:apiId/sql                             添加SQL');
   console.log('  ✓ PUT    /admin/apis/:apiId/sql/:sqlId                      更新SQL');
   console.log('  ✓ DELETE /admin/apis/:apiId/sql/:sqlId                      删除SQL');
+  console.log('  ✓ POST   /admin/apis/:id/test-execute                       测试执行API');
   console.log('  ✓ GET    /admin/groups                                      获取分组');
   console.log('  ✓ GET    /admin/datasources                                 获取数据源');
   console.log('  ✓ POST   /admin/restart                                     重启服务器');
