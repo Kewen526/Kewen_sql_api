@@ -11,6 +11,7 @@ import dotenv from 'dotenv';
 import poolManager from './database/pool.js';
 import { registerAutoRoutes } from './routes/autoRoutes.js';
 import { registerSystemRoutes } from './routes/systemRoutes.js';
+import { registerAdminRoutes } from './routes/adminRoutes.js';
 
 // 加载环境变量
 dotenv.config();
@@ -84,11 +85,15 @@ async function start() {
     console.log('📝 注册系统路由...');
     registerSystemRoutes(fastify);
 
-    // 4. 自动注册 API 路由
+    // 4. 注册管理路由
+    console.log('📝 注册管理路由...');
+    registerAdminRoutes(fastify);
+
+    // 5. 自动注册 API 路由
     console.log('📝 注册 API 路由...');
     await registerAutoRoutes(fastify, API_CONFIG_PATH);
 
-    // 5. 启动 HTTP 服务器
+    // 6. 启动 HTTP 服务器
     await fastify.listen({ port: PORT, host: HOST });
 
     console.log('');
