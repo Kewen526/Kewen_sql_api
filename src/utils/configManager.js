@@ -87,6 +87,12 @@ class ConfigManager {
   async createApi(apiData) {
     const config = await this._readConfig();
 
+    // 检查路径是否已被占用
+    const existingApi = config.api.find(api => api.path === apiData.path);
+    if (existingApi) {
+      throw new Error(`路径 "${apiData.path}" 已被 API "${existingApi.name}" 占用，请使用其他路径`);
+    }
+
     // 生成新的 ID
     const newId = this._generateId();
 
@@ -159,6 +165,14 @@ class ConfigManager {
 
     if (index === -1) {
       throw new Error('API不存在');
+    }
+
+    // 如果要修改路径，检查新路径是否已被其他API占用
+    if (apiData.path !== undefined) {
+      const duplicateApi = config.api.find(api => api.path === apiData.path && api.id !== id);
+      if (duplicateApi) {
+        throw new Error(`路径 "${apiData.path}" 已被 API "${duplicateApi.name}" 占用，请使用其他路径`);
+      }
     }
 
     const existingApi = config.api[index];
