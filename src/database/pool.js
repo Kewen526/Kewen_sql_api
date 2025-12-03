@@ -39,7 +39,6 @@ class DatabasePoolManager {
 
         // 超时配置
         connectTimeout: parseInt(config.DB_CONNECT_TIMEOUT) || 10000,
-        acquireTimeout: parseInt(config.DB_QUERY_TIMEOUT) || 30000,
 
         // 性能优化
         multipleStatements: true, // 支持多语句执行（事务需要）
@@ -62,7 +61,8 @@ class DatabasePoolManager {
         this.pools.set(datasourceId, pool);
       } catch (error) {
         console.error(`❌ 数据源 ${datasourceId} 连接失败:`, error.message);
-        throw error;
+        console.warn(`⚠️  数据源 ${datasourceId} 将被跳过，相关API将无法使用`);
+        // 不抛出错误，继续初始化其他数据源
       }
     }
 

@@ -141,48 +141,16 @@ function determineHttpMethod(apiParams, contentType) {
 
 /**
  * 构建 Fastify Schema（用于文档和验证）
+ * 简化版本，避免因参数类型不标准导致的验证失败
  */
 function buildSchema(name, note, apiParams, contentType) {
+  // 只返回基本的文档信息，不添加参数验证
+  // 参数验证在 handler 中通过 validateParams 函数手动完成
   const schema = {
     summary: name,
     description: note || name,
     tags: ['API']
   };
-
-  // 如果有参数，添加参数 schema
-  if (apiParams && apiParams !== '[]') {
-    try {
-      const params = JSON.parse(apiParams);
-
-      if (params.length > 0) {
-        const properties = {};
-        const required = [];
-
-        for (const param of params) {
-          properties[param.name] = {
-            type: param.type === 'float' ? 'number' : param.type || 'string',
-            description: param.note || param.name
-          };
-          required.push(param.name);
-        }
-
-        if (contentType === 'application/json') {
-          schema.body = {
-            type: 'object',
-            properties,
-            required
-          };
-        } else {
-          schema.querystring = {
-            type: 'object',
-            properties
-          };
-        }
-      }
-    } catch (error) {
-      // 忽略参数解析错误
-    }
-  }
 
   return schema;
 }

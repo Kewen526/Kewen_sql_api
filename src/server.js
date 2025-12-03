@@ -25,14 +25,7 @@ const API_CONFIG_PATH = process.env.API_CONFIG_PATH || './api_config (1).json';
  */
 const fastify = Fastify({
   logger: {
-    level: LOG_LEVEL,
-    transport: {
-      target: 'pino-pretty',
-      options: {
-        translateTime: 'HH:MM:ss Z',
-        ignore: 'pid,hostname'
-      }
-    }
+    level: LOG_LEVEL
   },
 
   // 性能优化配置
