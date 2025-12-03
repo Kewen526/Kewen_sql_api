@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  api-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: kewen-sql-api
+    restart: unless-stopped
+
+    # 环境变量（从 .env 文件加载）
+    env_file:
+      - .env
+
+    # 端口映射
+    ports:
+      - "${PORT:-3000}:3000"
+
+    # 资源限制（低内存配置）
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+
+    # 日志配置
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+    # 健康检查
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+    # 挂载日志目录
+    volumes:
+      - ./logs:/app/logs
+
+    # 网络配置
+    networks:
+      - api-network
+
+networks:
+  api-network:
+    driver: bridge
