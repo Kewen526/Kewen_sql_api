@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>API 管理系统 - Kewen SQL API</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      overflow: hidden;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 30px;
+      text-align: center;
+    }
+
+    .header h1 {
+      font-size: 32px;
+      margin-bottom: 10px;
+    }
+
+    .header p {
+      opacity: 0.9;
+      font-size: 14px;
+    }
+
+    .toolbar {
+      padding: 20px 30px;
+      background: #f8f9fa;
+      border-bottom: 1px solid #e9ecef;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 15px;
+    }
+
+    .search-box {
+      flex: 1;
+      min-width: 250px;
+      max-width: 400px;
+    }
+
+    .search-box input {
+      width: 100%;
+      padding: 10px 15px;
+      border: 2px solid #dee2e6;
+      border-radius: 6px;
+      font-size: 14px;
+      transition: all 0.3s;
+    }
+
+    .search-box input:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    .btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.3s;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-primary {
+      background: #667eea;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #5568d3;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn-success {
+      background: #28a745;
+      color: white;
+    }
+
+    .btn-success:hover {
+      background: #218838;
+    }
+
+    .btn-danger {
+      background: #dc3545;
+      color: white;
+    }
+
+    .btn-danger:hover {
+      background: #c82333;
+    }
+
+    .btn-warning {
+      background: #ffc107;
+      color: #212529;
+    }
+
+    .btn-warning:hover {
+      background: #e0a800;
+    }
+
+    .btn-sm {
+      padding: 6px 12px;
+      font-size: 12px;
+    }
+
+    .content {
+      padding: 30px;
+    }
+
+    .api-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+
+    .api-table thead {
+      background: #f8f9fa;
+    }
+
+    .api-table th {
+      padding: 15px;
+      text-align: left;
+      font-weight: 600;
+      color: #495057;
+      border-bottom: 2px solid #dee2e6;
+      font-size: 14px;
+    }
+
+    .api-table td {
+      padding: 15px;
+      border-bottom: 1px solid #e9ecef;
+      font-size: 13px;
+    }
+
+    .api-table tbody tr {
+      transition: background 0.2s;
+    }
+
+    .api-table tbody tr:hover {
+      background: #f8f9fa;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .badge-group-0 {
+      background: #e3f2fd;
+      color: #1976d2;
+    }
+
+    .badge-group-1 {
+      background: #fff3e0;
+      color: #f57c00;
+    }
+
+    .badge-group-2 {
+      background: #e8f5e9;
+      color: #388e3c;
+    }
+
+    .badge-get {
+      background: #d1ecf1;
+      color: #0c5460;
+    }
+
+    .badge-post {
+      background: #d4edda;
+      color: #155724;
+    }
+
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.5);
+      z-index: 1000;
+      overflow-y: auto;
+      padding: 20px;
+    }
+
+    .modal.active {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-content {
+      background: white;
+      border-radius: 12px;
+      width: 100%;
+      max-width: 800px;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+
+    .modal-header {
+      padding: 20px 30px;
+      border-bottom: 1px solid #e9ecef;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-header h2 {
+      font-size: 20px;
+      color: #212529;
+    }
+
+    .modal-body {
+      padding: 30px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 500;
+      color: #495057;
+      font-size: 14px;
+    }
+
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+      width: 100%;
+      padding: 10px 15px;
+      border: 2px solid #dee2e6;
+      border-radius: 6px;
+      font-size: 14px;
+      font-family: inherit;
+      transition: all 0.3s;
+    }
+
+    .form-group textarea {
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+      min-height: 150px;
+      resize: vertical;
+    }
+
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    .modal-footer {
+      padding: 20px 30px;
+      border-top: 1px solid #e9ecef;
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    .close-btn {
+      background: none;
+      border: none;
+      font-size: 24px;
+      cursor: pointer;
+      color: #6c757d;
+      transition: color 0.2s;
+    }
+
+    .close-btn:hover {
+      color: #212529;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+
+    .stat-card {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    .stat-card h3 {
+      font-size: 14px;
+      opacity: 0.9;
+      margin-bottom: 8px;
+    }
+
+    .stat-card .number {
+      font-size: 32px;
+      font-weight: 700;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #6c757d;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #6c757d;
+    }
+
+    .empty-state svg {
+      width: 120px;
+      height: 120px;
+      opacity: 0.3;
+      margin-bottom: 20px;
+    }
+
+    .actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .code {
+      background: #f8f9fa;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 12px;
+      color: #e83e8c;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🛠️ API 管理系统</h1>
+      <p>Kewen SQL API Server - 创建、编辑和管理您的 API 接口</p>
+    </div>
+
+    <div class="toolbar">
+      <div class="search-box">
+        <input type="text" id="searchInput" placeholder="🔍 搜索 API 名称、路径或说明...">
+      </div>
+      <div style="display: flex; gap: 10px;">
+        <button class="btn btn-primary" onclick="openCreateModal()">
+          ➕ 创建新 API
+        </button>
+        <button class="btn btn-warning" onclick="refreshApis()">
+          🔄 刷新
+        </button>
+        <button class="btn btn-success" onclick="restartServer()">
+          🚀 重启服务器
+        </button>
+      </div>
+    </div>
+
+    <div class="content">
+      <div class="stats" id="stats"></div>
+      <div id="apiList"></div>
+    </div>
+  </div>
+
+  <!-- 创建/编辑 API Modal -->
+  <div class="modal" id="apiModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="modalTitle">创建新 API</h2>
+        <button class="close-btn" onclick="closeModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="apiForm">
+          <input type="hidden" id="apiId">
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>API 名称 *</label>
+              <input type="text" id="apiName" required placeholder="例如：获取产品信息">
+            </div>
+            <div class="form-group">
+              <label>API 路径 *</label>
+              <input type="text" id="apiPath" required placeholder="例如：/get_product_info">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>说明</label>
+            <input type="text" id="apiNote" placeholder="API 功能说明">
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>分组 *</label>
+              <select id="apiGroup" required>
+                <option value="">选择分组</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>数据源 *</label>
+              <select id="apiDatasource" required>
+                <option value="">选择数据源</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>HTTP 方法</label>
+              <select id="apiMethod">
+                <option value="POST">POST</option>
+                <option value="GET">GET</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Content-Type</label>
+              <select id="apiContentType">
+                <option value="json">application/json</option>
+                <option value="x-www-form-urlencoded">application/x-www-form-urlencoded</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>SQL 查询 *</label>
+            <textarea id="apiSql" required placeholder="SELECT * FROM table WHERE id = #{id}"></textarea>
+          </div>
+
+          <div class="form-group">
+            <label>参数定义（每行一个，格式：参数名:类型:说明）</label>
+            <textarea id="apiParams" placeholder="id:int:产品ID&#10;name:string:产品名称" rows="4"></textarea>
+          </div>
+
+          <div class="form-group">
+            <label style="display: flex; align-items: center; gap: 8px;">
+              <input type="checkbox" id="apiTransaction">
+              是否启用事务
+            </label>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="closeModal()">取消</button>
+        <button class="btn btn-primary" onclick="saveApi()">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = 'http://47.104.72.198:3000';
+    let allApis = [];
+    let groups = [];
+    let datasources = [];
+
+    // 页面加载时初始化
+    window.onload = async () => {
+      await loadMetadata();
+      await loadApis();
+    };
+
+    // 加载元数据（分组和数据源）
+    async function loadMetadata() {
+      try {
+        const [groupsRes, datasourcesRes] = await Promise.all([
+          fetch(`${API_BASE}/admin/groups`),
+          fetch(`${API_BASE}/admin/datasources`)
+        ]);
+
+        if (groupsRes.ok) {
+          const data = await groupsRes.json();
+          groups = data.groups;
+          populateGroupSelect();
+        }
+
+        if (datasourcesRes.ok) {
+          const data = await datasourcesRes.json();
+          datasources = data.datasources;
+          populateDatasourceSelect();
+        }
+      } catch (error) {
+        console.error('加载元数据失败:', error);
+      }
+    }
+
+    // 填充分组下拉框
+    function populateGroupSelect() {
+      const select = document.getElementById('apiGroup');
+      select.innerHTML = '<option value="">选择分组</option>';
+      groups.forEach(group => {
+        const option = document.createElement('option');
+        option.value = group.id;
+        option.textContent = group.name;
+        select.appendChild(option);
+      });
+    }
+
+    // 填充数据源下拉框
+    function populateDatasourceSelect() {
+      const select = document.getElementById('apiDatasource');
+      select.innerHTML = '<option value="">选择数据源</option>';
+      datasources.forEach(ds => {
+        const option = document.createElement('option');
+        option.value = ds.id;
+        option.textContent = `${ds.name} (${ds.id})`;
+        select.appendChild(option);
+      });
+    }
+
+    // 加载所有 API
+    async function loadApis() {
+      const container = document.getElementById('apiList');
+      container.innerHTML = '<div class="loading">⏳ 加载中...</div>';
+
+      try {
+        const response = await fetch(`${API_BASE}/admin/apis`);
+        if (!response.ok) throw new Error('加载失败');
+
+        const data = await response.json();
+        allApis = data.apis || [];
+
+        updateStats();
+        renderApis(allApis);
+      } catch (error) {
+        container.innerHTML = `<div class="empty-state">❌ 加载失败: ${error.message}</div>`;
+      }
+    }
+
+    // 更新统计数据
+    function updateStats() {
+      const statsContainer = document.getElementById('stats');
+      const groupCounts = {};
+
+      allApis.forEach(api => {
+        const groupName = getGroupName(api.groupId);
+        groupCounts[groupName] = (groupCounts[groupName] || 0) + 1;
+      });
+
+      statsContainer.innerHTML = `
+        <div class="stat-card">
+          <h3>总接口数</h3>
+          <div class="number">${allApis.length}</div>
+        </div>
+        ${Object.entries(groupCounts).map(([name, count]) => `
+          <div class="stat-card">
+            <h3>${name}</h3>
+            <div class="number">${count}</div>
+          </div>
+        `).join('')}
+      `;
+    }
+
+    // 渲染 API 列表
+    function renderApis(apis) {
+      const container = document.getElementById('apiList');
+
+      if (apis.length === 0) {
+        container.innerHTML = '<div class="empty-state">📭 暂无 API 接口</div>';
+        return;
+      }
+
+      const table = `
+        <table class="api-table">
+          <thead>
+            <tr>
+              <th>名称</th>
+              <th>路径</th>
+              <th>方法</th>
+              <th>分组</th>
+              <th>数据源</th>
+              <th>说明</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${apis.map(api => `
+              <tr>
+                <td><strong>${api.name}</strong></td>
+                <td><span class="code">${api.path}</span></td>
+                <td><span class="badge badge-${api.method?.toLowerCase() || 'post'}">${api.method || 'POST'}</span></td>
+                <td><span class="badge badge-group-${getGroupIndex(api.groupId)}">${getGroupName(api.groupId)}</span></td>
+                <td>${api.datasourceId}</td>
+                <td>${api.note || '-'}</td>
+                <td class="actions">
+                  <button class="btn btn-primary btn-sm" onclick="editApi('${api.id}')">✏️ 编辑</button>
+                  <button class="btn btn-danger btn-sm" onclick="deleteApi('${api.id}', '${api.name}')">🗑️ 删除</button>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+
+      container.innerHTML = table;
+    }
+
+    // 获取分组名称
+    function getGroupName(groupId) {
+      const group = groups.find(g => g.id === groupId);
+      return group ? group.name : groupId;
+    }
+
+    // 获取分组索引
+    function getGroupIndex(groupId) {
+      const index = groups.findIndex(g => g.id === groupId);
+      return index >= 0 ? index : 0;
+    }
+
+    // 搜索功能
+    document.getElementById('searchInput').addEventListener('input', (e) => {
+      const keyword = e.target.value.toLowerCase();
+      const filtered = allApis.filter(api =>
+        api.name.toLowerCase().includes(keyword) ||
+        api.path.toLowerCase().includes(keyword) ||
+        (api.note && api.note.toLowerCase().includes(keyword))
+      );
+      renderApis(filtered);
+    });
+
+    // 刷新 API 列表
+    async function refreshApis() {
+      await loadApis();
+    }
+
+    // 打开创建 Modal
+    function openCreateModal() {
+      document.getElementById('modalTitle').textContent = '创建新 API';
+      document.getElementById('apiForm').reset();
+      document.getElementById('apiId').value = '';
+      document.getElementById('apiModal').classList.add('active');
+    }
+
+    // 编辑 API
+    async function editApi(id) {
+      try {
+        const response = await fetch(`${API_BASE}/admin/apis/${id}`);
+        if (!response.ok) throw new Error('加载失败');
+
+        const data = await response.json();
+        const api = data.api;
+
+        document.getElementById('modalTitle').textContent = '编辑 API';
+        document.getElementById('apiId').value = api.id;
+        document.getElementById('apiName').value = api.name;
+        document.getElementById('apiPath').value = api.path;
+        document.getElementById('apiNote').value = api.note || '';
+        document.getElementById('apiGroup').value = api.groupId;
+        document.getElementById('apiDatasource').value = api.datasourceId;
+        document.getElementById('apiMethod').value = api.method || 'POST';
+        document.getElementById('apiContentType').value = api.contentType || 'json';
+        document.getElementById('apiSql').value = api.sql;
+        document.getElementById('apiTransaction').checked = api.isTransaction || false;
+
+        // 转换参数格式
+        if (api.apiParams && api.apiParams.length > 0) {
+          const paramsText = api.apiParams.map(p =>
+            `${p.name}:${p.type}:${p.note || ''}`
+          ).join('\n');
+          document.getElementById('apiParams').value = paramsText;
+        } else {
+          document.getElementById('apiParams').value = '';
+        }
+
+        document.getElementById('apiModal').classList.add('active');
+      } catch (error) {
+        alert('加载 API 失败: ' + error.message);
+      }
+    }
+
+    // 保存 API
+    async function saveApi() {
+      const id = document.getElementById('apiId').value;
+      const name = document.getElementById('apiName').value;
+      const path = document.getElementById('apiPath').value;
+      const note = document.getElementById('apiNote').value;
+      const groupId = document.getElementById('apiGroup').value;
+      const datasourceId = document.getElementById('apiDatasource').value;
+      const method = document.getElementById('apiMethod').value;
+      const contentType = document.getElementById('apiContentType').value;
+      const sql = document.getElementById('apiSql').value;
+      const isTransaction = document.getElementById('apiTransaction').checked;
+      const paramsText = document.getElementById('apiParams').value;
+
+      // 验证必填字段
+      if (!name || !path || !groupId || !datasourceId || !sql) {
+        alert('请填写所有必填字段');
+        return;
+      }
+
+      // 解析参数
+      const apiParams = paramsText.trim() ? paramsText.split('\n').map(line => {
+        const [name, type, note] = line.split(':').map(s => s.trim());
+        return { name, type, note: note || '' };
+      }) : [];
+
+      const apiData = {
+        name,
+        path,
+        note,
+        groupId,
+        datasourceId,
+        method,
+        contentType,
+        sql,
+        apiParams,
+        isTransaction
+      };
+
+      try {
+        const url = id ? `${API_BASE}/admin/apis/${id}` : `${API_BASE}/admin/apis`;
+        const method = id ? 'PUT' : 'POST';
+
+        const response = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(apiData)
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || '保存失败');
+        }
+
+        alert(id ? '✅ API 更新成功！' : '✅ API 创建成功！');
+        closeModal();
+        await loadApis();
+      } catch (error) {
+        alert('❌ 保存失败: ' + error.message);
+      }
+    }
+
+    // 删除 API
+    async function deleteApi(id, name) {
+      if (!confirm(`确定要删除 API "${name}" 吗？\n\n此操作不可恢复！`)) {
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE}/admin/apis/${id}`, {
+          method: 'DELETE'
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || '删除失败');
+        }
+
+        alert('✅ API 删除成功！');
+        await loadApis();
+      } catch (error) {
+        alert('❌ 删除失败: ' + error.message);
+      }
+    }
+
+    // 重启服务器
+    async function restartServer() {
+      if (!confirm('确定要重启服务器吗？\n\n服务器将在 3 秒后重启，新的 API 配置将生效。')) {
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE}/admin/restart`, {
+          method: 'POST'
+        });
+
+        if (!response.ok) throw new Error('重启失败');
+
+        alert('✅ 服务器重启指令已发送！\n\n请等待 5-10 秒后刷新页面。');
+
+        // 5秒后自动刷新页面
+        setTimeout(() => {
+          window.location.reload();
+        }, 5000);
+      } catch (error) {
+        alert('❌ 重启失败: ' + error.message);
+      }
+    }
+
+    // 关闭 Modal
+    function closeModal() {
+      document.getElementById('apiModal').classList.remove('active');
+    }
+
+    // 点击 Modal 外部关闭
+    document.getElementById('apiModal').addEventListener('click', (e) => {
+      if (e.target.id === 'apiModal') {
+        closeModal();
+      }
+    });
+  </script>
+</body>
+</html>

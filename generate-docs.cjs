@@ -14,9 +14,9 @@ const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
 
 // 分组映射
 const groupNames = {
-  'yTMWJ8W3': '产品相关',
-  'H1BFe93S': '采购相关',
-  'j2pRZs0O': '任务相关'
+  'yTMWJ8W3': 'gocrm',
+  'H1BFe93S': '采购IW',
+  'j2pRZs0O': '跟单IW'
 };
 
 // 解析 API 数据
@@ -155,8 +155,8 @@ function generateApiHtml(api) {
         <div class="detail-section">
           <div class="detail-title">🌐 完整地址</div>
           <div class="detail-content">
-            <div class="code-block">http://YOUR_SERVER_IP:3000/${api.path}</div>
-            <button class="copy-btn" onclick="copyText('http://YOUR_SERVER_IP:3000/${api.path}')">复制地址</button>
+            <div class="code-block">http://47.104.72.198:3000/${api.path}</div>
+            <button class="copy-btn" onclick="copyText('http://47.104.72.198:3000/${api.path}')">复制地址</button>
           </div>
         </div>
 
@@ -210,7 +210,7 @@ function generateApiHtml(api) {
 }
 
 function generateCurlExample(api) {
-  let curl = `curl -X ${api.method} http://YOUR_SERVER_IP:3000/${api.path}`;
+  let curl = `curl -X ${api.method} http://47.104.72.198:3000/${api.path}`;
 
   if (api.contentType) {
     curl += ` \\\n  -H "Content-Type: ${api.contentType}"`;
@@ -503,7 +503,7 @@ function generateFullHtml(totalCount, groupsHtml) {
                 <div class="info-grid">
                     <div class="info-item">
                         <strong>🌐 服务地址</strong>
-                        <div class="value">http://YOUR_SERVER_IP:3000</div>
+                        <div class="value">http://47.104.72.198:3000</div>
                     </div>
                     <div class="info-item">
                         <strong>📊 总接口数</strong>
