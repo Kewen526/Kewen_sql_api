@@ -55,7 +55,19 @@ class ConfigManager {
    */
   async getApiById(id) {
     const apis = await this.getAllApis();
-    return apis.find(api => api.id === id);
+    const api = apis.find(api => api.id === id);
+
+    if (api) {
+      // 解析 testParams（如果存在）
+      try {
+        api.testParamsParsed = api.testParams ? JSON.parse(api.testParams) : {};
+      } catch (e) {
+        console.error(`解析 API ${api.id} 的 testParams 失败:`, e);
+        api.testParamsParsed = {};
+      }
+    }
+
+    return api;
   }
 
   /**
@@ -70,6 +82,7 @@ class ConfigManager {
    * @param {string} apiData.contentType - Content-Type
    * @param {string} apiData.note - 说明
    * @param {Array} apiData.params - 参数列表
+   * @param {Object} apiData.testParams - 测试参数（JSON对象）
    */
   async createApi(apiData) {
     const config = await this._readConfig();
@@ -123,6 +136,7 @@ class ConfigManager {
         transaction: apiData.transaction ? 1 : 0
       }]),
       taskJson: null,
+      testParams: apiData.testParams ? JSON.stringify(apiData.testParams) : null,
       transformScript: null,
       type: null,
       updateTime: new Date().toISOString().replace('T', ' ').substring(0, 19)
@@ -159,6 +173,7 @@ class ConfigManager {
       contentType: apiData.contentType !== undefined ? apiData.contentType : existingApi.contentType,
       groupId: apiData.groupId !== undefined ? apiData.groupId : existingApi.groupId,
       params: apiData.params !== undefined ? JSON.stringify(apiData.params) : existingApi.params,
+      testParams: apiData.testParams !== undefined ? JSON.stringify(apiData.testParams) : existingApi.testParams,
       updateTime: new Date().toISOString().replace('T', ' ').substring(0, 19)
     };
 
