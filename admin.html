@@ -19,7 +19,7 @@
     }
 
     .container {
-      max-width: 1400px;
+      max-width: 1600px;
       margin: 0 auto;
       background: white;
       border-radius: 12px;
@@ -225,7 +225,7 @@
       background: white;
       border-radius: 12px;
       width: 100%;
-      max-width: 800px;
+      max-width: 1200px;
       max-height: 90vh;
       overflow-y: auto;
       box-shadow: 0 20px 60px rgba(0,0,0,0.3);
@@ -351,13 +351,6 @@
       color: #6c757d;
     }
 
-    .empty-state svg {
-      width: 120px;
-      height: 120px;
-      opacity: 0.3;
-      margin-bottom: 20px;
-    }
-
     .actions {
       display: flex;
       gap: 8px;
@@ -371,13 +364,90 @@
       font-size: 12px;
       color: #e83e8c;
     }
+
+    /* SQL 标签页样式 */
+    .sql-tabs {
+      margin-top: 20px;
+    }
+
+    .sql-tabs-header {
+      display: flex;
+      gap: 5px;
+      border-bottom: 2px solid #dee2e6;
+      margin-bottom: 15px;
+      flex-wrap: wrap;
+    }
+
+    .sql-tab {
+      padding: 10px 20px;
+      background: #f8f9fa;
+      border: none;
+      border-radius: 6px 6px 0 0;
+      cursor: pointer;
+      font-size: 13px;
+      transition: all 0.3s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .sql-tab.active {
+      background: #667eea;
+      color: white;
+    }
+
+    .sql-tab:hover:not(.active) {
+      background: #e9ecef;
+    }
+
+    .sql-tab-close {
+      margin-left: 5px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .sql-tab-close:hover {
+      color: #dc3545;
+    }
+
+    .sql-tab-add {
+      padding: 10px 20px;
+      background: #28a745;
+      color: white;
+      border: none;
+      border-radius: 6px 6px 0 0;
+      cursor: pointer;
+      font-size: 13px;
+      transition: all 0.3s;
+    }
+
+    .sql-tab-add:hover {
+      background: #218838;
+    }
+
+    .sql-tab-content {
+      display: none;
+    }
+
+    .sql-tab-content.active {
+      display: block;
+    }
+
+    .sql-info {
+      background: #f8f9fa;
+      padding: 10px 15px;
+      border-radius: 6px;
+      margin-bottom: 10px;
+      font-size: 12px;
+      color: #6c757d;
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
       <h1>🛠️ API 管理系统</h1>
-      <p>Kewen SQL API Server - 创建、编辑和管理您的 API 接口</p>
+      <p>Kewen SQL API Server - 支持多 SQL 管理，类似 DBAPI</p>
     </div>
 
     <div class="toolbar">
@@ -447,36 +517,33 @@
 
           <div class="form-row">
             <div class="form-group">
-              <label>HTTP 方法</label>
-              <select id="apiMethod">
-                <option value="POST">POST</option>
-                <option value="GET">GET</option>
+              <label>Content-Type</label>
+              <select id="apiContentType">
+                <option value="application/json">application/json</option>
+                <option value="application/x-www-form-urlencoded">application/x-www-form-urlencoded</option>
               </select>
             </div>
             <div class="form-group">
-              <label>Content-Type</label>
-              <select id="apiContentType">
-                <option value="json">application/json</option>
-                <option value="x-www-form-urlencoded">application/x-www-form-urlencoded</option>
-              </select>
+              <label style="display: flex; align-items: center; gap: 8px; margin-top: 28px;">
+                <input type="checkbox" id="apiTransaction">
+                启用事务
+              </label>
             </div>
           </div>
 
-          <div class="form-group">
-            <label>SQL 查询 *</label>
-            <textarea id="apiSql" required placeholder="SELECT * FROM table WHERE id = #{id}"></textarea>
+          <!-- SQL 标签页 -->
+          <div class="sql-tabs">
+            <div class="sql-tabs-header" id="sqlTabsHeader">
+              <!-- SQL 标签将动态生成 -->
+            </div>
+            <div id="sqlTabsContent">
+              <!-- SQL 内容将动态生成 -->
+            </div>
           </div>
 
           <div class="form-group">
             <label>参数定义（每行一个，格式：参数名:类型:说明）</label>
             <textarea id="apiParams" placeholder="id:int:产品ID&#10;name:string:产品名称" rows="4"></textarea>
-          </div>
-
-          <div class="form-group">
-            <label style="display: flex; align-items: center; gap: 8px;">
-              <input type="checkbox" id="apiTransaction">
-              是否启用事务
-            </label>
           </div>
         </form>
       </div>
@@ -492,6 +559,8 @@
     let allApis = [];
     let groups = [];
     let datasources = [];
+    let currentSqlTabs = [];
+    let activeSqlTabIndex = 0;
 
     // 页面加载时初始化
     window.onload = async () => {
@@ -509,17 +578,18 @@
 
         if (groupsRes.ok) {
           const data = await groupsRes.json();
-          groups = data.groups;
+          groups = data.data || data.groups || [];
           populateGroupSelect();
         }
 
         if (datasourcesRes.ok) {
           const data = await datasourcesRes.json();
-          datasources = data.datasources;
+          datasources = data.data || data.datasources || [];
           populateDatasourceSelect();
         }
       } catch (error) {
         console.error('加载元数据失败:', error);
+        alert('⚠️ 加载分组和数据源失败，请检查服务器是否运行！\n\n错误: ' + error.message);
       }
     }
 
@@ -554,15 +624,16 @@
 
       try {
         const response = await fetch(`${API_BASE}/admin/apis`);
-        if (!response.ok) throw new Error('加载失败');
+        if (!response.ok) throw new Error('加载失败: ' + response.status);
 
         const data = await response.json();
-        allApis = data.apis || [];
+        allApis = data.apis || data.data || [];
 
         updateStats();
         renderApis(allApis);
       } catch (error) {
-        container.innerHTML = `<div class="empty-state">❌ 加载失败: ${error.message}</div>`;
+        console.error('加载API失败:', error);
+        container.innerHTML = `<div class="empty-state">❌ 加载失败: ${error.message}<br><br>请检查：<br>1. 主服务器是否运行 (端口 3000)<br>2. 网络连接是否正常</div>`;
       }
     }
 
@@ -605,7 +676,7 @@
             <tr>
               <th>名称</th>
               <th>路径</th>
-              <th>方法</th>
+              <th>SQL数量</th>
               <th>分组</th>
               <th>数据源</th>
               <th>说明</th>
@@ -617,7 +688,7 @@
               <tr>
                 <td><strong>${api.name}</strong></td>
                 <td><span class="code">${api.path}</span></td>
-                <td><span class="badge badge-${api.method?.toLowerCase() || 'post'}">${api.method || 'POST'}</span></td>
+                <td><span class="badge badge-post">${api.sqlList?.length || 0} 个 SQL</span></td>
                 <td><span class="badge badge-group-${getGroupIndex(api.groupId)}">${getGroupName(api.groupId)}</span></td>
                 <td>${api.datasourceId}</td>
                 <td>${api.note || '-'}</td>
@@ -667,6 +738,15 @@
       document.getElementById('modalTitle').textContent = '创建新 API';
       document.getElementById('apiForm').reset();
       document.getElementById('apiId').value = '';
+
+      // 初始化一个空的 SQL 标签
+      currentSqlTabs = [{
+        id: generateId(),
+        sqlText: ''
+      }];
+      activeSqlTabIndex = 0;
+      renderSqlTabs();
+
       document.getElementById('apiModal').classList.add('active');
     }
 
@@ -677,7 +757,7 @@
         if (!response.ok) throw new Error('加载失败');
 
         const data = await response.json();
-        const api = data.api;
+        const api = data.api || data.data;
 
         document.getElementById('modalTitle').textContent = '编辑 API';
         document.getElementById('apiId').value = api.id;
@@ -686,14 +766,20 @@
         document.getElementById('apiNote').value = api.note || '';
         document.getElementById('apiGroup').value = api.groupId;
         document.getElementById('apiDatasource').value = api.datasourceId;
-        document.getElementById('apiMethod').value = api.method || 'POST';
-        document.getElementById('apiContentType').value = api.contentType || 'json';
-        document.getElementById('apiSql').value = api.sql;
-        document.getElementById('apiTransaction').checked = api.isTransaction || false;
+        document.getElementById('apiContentType').value = api.contentType || 'application/json';
+        document.getElementById('apiTransaction').checked = api.transaction === 1;
+
+        // 加载 SQL 标签
+        currentSqlTabs = api.sqlList && api.sqlList.length > 0 ? api.sqlList : [{
+          id: generateId(),
+          sqlText: ''
+        }];
+        activeSqlTabIndex = 0;
+        renderSqlTabs();
 
         // 转换参数格式
-        if (api.apiParams && api.apiParams.length > 0) {
-          const paramsText = api.apiParams.map(p =>
+        if (api.params && api.params.length > 0) {
+          const paramsText = api.params.map(p =>
             `${p.name}:${p.type}:${p.note || ''}`
           ).join('\n');
           document.getElementById('apiParams').value = paramsText;
@@ -707,6 +793,76 @@
       }
     }
 
+    // 渲染 SQL 标签页
+    function renderSqlTabs() {
+      const header = document.getElementById('sqlTabsHeader');
+      const content = document.getElementById('sqlTabsContent');
+
+      // 渲染标签头
+      header.innerHTML = `
+        ${currentSqlTabs.map((sql, index) => `
+          <button type="button" class="sql-tab ${index === activeSqlTabIndex ? 'active' : ''}"
+                  onclick="switchSqlTab(${index})">
+            SQL-${index + 1}
+            ${currentSqlTabs.length > 1 ? `<span class="sql-tab-close" onclick="event.stopPropagation(); deleteSqlTab(${index})">&times;</span>` : ''}
+          </button>
+        `).join('')}
+        <button type="button" class="sql-tab-add" onclick="addSqlTab()">+ 新增 SQL</button>
+      `;
+
+      // 渲染标签内容
+      content.innerHTML = currentSqlTabs.map((sql, index) => `
+        <div class="sql-tab-content ${index === activeSqlTabIndex ? 'active' : ''}" id="sqlContent${index}">
+          <div class="sql-info">
+            SQL ID: ${sql.id || '新建'} | 标签 ${index + 1}
+          </div>
+          <textarea class="form-control" rows="10"
+                    style="width: 100%; padding: 10px; border: 2px solid #dee2e6; border-radius: 6px; font-family: monospace;"
+                    placeholder="输入 SQL 查询语句，支持 MyBatis 参数：#{param}"
+                    onchange="updateSqlText(${index}, this.value)">${sql.sqlText || ''}</textarea>
+        </div>
+      `).join('');
+    }
+
+    // 切换 SQL 标签
+    function switchSqlTab(index) {
+      activeSqlTabIndex = index;
+      renderSqlTabs();
+    }
+
+    // 添加 SQL 标签
+    function addSqlTab() {
+      currentSqlTabs.push({
+        id: generateId(),
+        sqlText: ''
+      });
+      activeSqlTabIndex = currentSqlTabs.length - 1;
+      renderSqlTabs();
+    }
+
+    // 删除 SQL 标签
+    function deleteSqlTab(index) {
+      if (currentSqlTabs.length <= 1) {
+        alert('至少需要保留一个 SQL！');
+        return;
+      }
+
+      if (!confirm(`确定要删除 SQL-${index + 1} 吗？`)) {
+        return;
+      }
+
+      currentSqlTabs.splice(index, 1);
+      if (activeSqlTabIndex >= currentSqlTabs.length) {
+        activeSqlTabIndex = currentSqlTabs.length - 1;
+      }
+      renderSqlTabs();
+    }
+
+    // 更新 SQL 文本
+    function updateSqlText(index, text) {
+      currentSqlTabs[index].sqlText = text;
+    }
+
     // 保存 API
     async function saveApi() {
       const id = document.getElementById('apiId').value;
@@ -715,20 +871,24 @@
       const note = document.getElementById('apiNote').value;
       const groupId = document.getElementById('apiGroup').value;
       const datasourceId = document.getElementById('apiDatasource').value;
-      const method = document.getElementById('apiMethod').value;
       const contentType = document.getElementById('apiContentType').value;
-      const sql = document.getElementById('apiSql').value;
       const isTransaction = document.getElementById('apiTransaction').checked;
       const paramsText = document.getElementById('apiParams').value;
 
       // 验证必填字段
-      if (!name || !path || !groupId || !datasourceId || !sql) {
+      if (!name || !path || !groupId || !datasourceId) {
         alert('请填写所有必填字段');
         return;
       }
 
+      // 验证至少有一个 SQL
+      if (currentSqlTabs.length === 0 || !currentSqlTabs[0].sqlText.trim()) {
+        alert('请至少填写一个 SQL 语句');
+        return;
+      }
+
       // 解析参数
-      const apiParams = paramsText.trim() ? paramsText.split('\n').map(line => {
+      const params = paramsText.trim() ? paramsText.split('\n').map(line => {
         const [name, type, note] = line.split(':').map(s => s.trim());
         return { name, type, note: note || '' };
       }) : [];
@@ -739,11 +899,13 @@
         note,
         groupId,
         datasourceId,
-        method,
         contentType,
-        sql,
-        apiParams,
-        isTransaction
+        transaction: isTransaction ? 1 : 0,
+        params,
+        sqlList: currentSqlTabs.map(tab => ({
+          id: tab.id,
+          sqlText: tab.sqlText
+        }))
       };
 
       try {
@@ -827,6 +989,16 @@
         closeModal();
       }
     });
+
+    // 生成随机 ID
+    function generateId() {
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+      let id = '';
+      for (let i = 0; i < 8; i++) {
+        id += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      return id;
+    }
   </script>
 </body>
 </html>

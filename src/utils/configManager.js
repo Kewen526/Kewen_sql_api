@@ -1,6 +1,7 @@
 /**
  * API 配置管理工具
  * 负责读取、修改、保存 api_config (1).json
+ * 支持 DBAPI 真实格式：多SQL、多Task
  */
 
 import fs from 'fs/promises';
@@ -14,12 +15,35 @@ const CONFIG_PATH = path.join(__dirname, '../../api_config (1).json');
 class ConfigManager {
   /**
    * 读取所有 API 配置
+   * 返回解析后的 API 列表（task 字段已解析）
    */
   async getAllApis() {
     try {
       const content = await fs.readFile(CONFIG_PATH, 'utf-8');
       const config = JSON.parse(content);
-      return config.api || [];
+
+      // 解析每个 API 的 task 字段
+      const apis = (config.api || []).map(api => {
+        try {
+          const parsedTask = api.task ? JSON.parse(api.task) : [];
+          const parsedParams = api.params ? JSON.parse(api.params) : [];
+
+          return {
+            ...api,
+            taskParsed: parsedTask,
+            paramsParsed: parsedParams,
+            // 兼容性：提取第一个 task 的信息作为主要信息
+            datasourceId: parsedTask[0]?.datasourceId || null,
+            transaction: parsedTask[0]?.transaction || 0,
+            sqlList: parsedTask[0]?.sqlList || []
+          };
+        } catch (e) {
+          console.error(`解析 API ${api.id} 失败:`, e);
+          return api;
+        }
+      });
+
+      return apis;
     } catch (error) {
       console.error('读取配置失败:', error);
       throw new Error('读取API配置失败');
@@ -36,12 +60,40 @@ class ConfigManager {
 
   /**
    * 创建新的 API
+   * @param {Object} apiData - API 数据
+   * @param {string} apiData.name - API 名称
+   * @param {string} apiData.path - API 路径
+   * @param {string} apiData.groupId - 分组 ID
+   * @param {string} apiData.datasourceId - 数据源 ID
+   * @param {Array} apiData.sqlList - SQL 列表 [{sqlText, id?}]
+   * @param {number} apiData.transaction - 是否启用事务 (0/1)
+   * @param {string} apiData.contentType - Content-Type
+   * @param {string} apiData.note - 说明
+   * @param {Array} apiData.params - 参数列表
    */
   async createApi(apiData) {
     const config = await this._readConfig();
 
     // 生成新的 ID
     const newId = this._generateId();
+
+    // 处理 SQL 列表
+    const sqlList = (apiData.sqlList || []).map(sql => ({
+      transformPlugin: null,
+      transformPluginParam: null,
+      sqlText: sql.sqlText || sql,
+      id: sql.id || this._generateId()
+    }));
+
+    // 如果没有提供 sqlList，但提供了 sqlText，使用单个 SQL
+    if (sqlList.length === 0 && apiData.sqlText) {
+      sqlList.push({
+        transformPlugin: null,
+        transformPluginParam: null,
+        sqlText: apiData.sqlText,
+        id: this._generateId()
+      });
+    }
 
     const newApi = {
       id: newId,
@@ -55,7 +107,7 @@ class ConfigManager {
       globalTransformPlugin: null,
       graphData: null,
       groupId: apiData.groupId,
-      jsonParam: apiData.jsonParam || null,
+      jsonParam: null,
       name: apiData.name,
       note: apiData.note || apiData.name,
       paramProcessPlugin: null,
@@ -67,13 +119,8 @@ class ConfigManager {
       task: JSON.stringify([{
         taskType: 1,
         datasourceId: apiData.datasourceId,
-        sqlList: [{
-          transformPlugin: null,
-          transformPluginParam: null,
-          sqlText: apiData.sqlText,
-          id: this._generateId()
-        }],
-        transaction: apiData.transaction || 0
+        sqlList: sqlList,
+        transaction: apiData.transaction ? 1 : 0
       }]),
       taskJson: null,
       transformScript: null,
@@ -89,6 +136,8 @@ class ConfigManager {
 
   /**
    * 更新 API
+   * @param {string} id - API ID
+   * @param {Object} apiData - 更新的数据
    */
   async updateApi(id, apiData) {
     const config = await this._readConfig();
@@ -99,8 +148,9 @@ class ConfigManager {
     }
 
     const existingApi = config.api[index];
+    const existingTask = existingApi.task ? JSON.parse(existingApi.task) : [{}];
 
-    // 更新字段
+    // 更新基本字段
     config.api[index] = {
       ...existingApi,
       name: apiData.name !== undefined ? apiData.name : existingApi.name,
@@ -112,19 +162,41 @@ class ConfigManager {
       updateTime: new Date().toISOString().replace('T', ' ').substring(0, 19)
     };
 
-    // 更新 SQL
-    if (apiData.sqlText || apiData.datasourceId !== undefined || apiData.transaction !== undefined) {
-      const task = JSON.parse(existingApi.task);
-      if (task && task[0]) {
-        task[0].datasourceId = apiData.datasourceId !== undefined ? apiData.datasourceId : task[0].datasourceId;
-        task[0].transaction = apiData.transaction !== undefined ? apiData.transaction : task[0].transaction;
+    // 更新 Task 和 SQL
+    if (apiData.datasourceId !== undefined ||
+        apiData.transaction !== undefined ||
+        apiData.sqlList ||
+        apiData.sqlText) {
 
-        if (apiData.sqlText) {
-          task[0].sqlList[0].sqlText = apiData.sqlText;
+      const task = existingTask[0] || { taskType: 1, sqlList: [] };
+
+      // 更新数据源和事务
+      task.datasourceId = apiData.datasourceId !== undefined ? apiData.datasourceId : task.datasourceId;
+      task.transaction = apiData.transaction !== undefined ? (apiData.transaction ? 1 : 0) : task.transaction;
+
+      // 更新 SQL 列表
+      if (apiData.sqlList) {
+        task.sqlList = apiData.sqlList.map(sql => ({
+          transformPlugin: null,
+          transformPluginParam: null,
+          sqlText: sql.sqlText || sql,
+          id: sql.id || this._generateId()
+        }));
+      } else if (apiData.sqlText) {
+        // 兼容单个 SQL 的情况：更新第一个 SQL
+        if (task.sqlList && task.sqlList[0]) {
+          task.sqlList[0].sqlText = apiData.sqlText;
+        } else {
+          task.sqlList = [{
+            transformPlugin: null,
+            transformPluginParam: null,
+            sqlText: apiData.sqlText,
+            id: this._generateId()
+          }];
         }
-
-        config.api[index].task = JSON.stringify(task);
       }
+
+      config.api[index].task = JSON.stringify([task]);
     }
 
     await this._saveConfig(config);
@@ -150,6 +222,104 @@ class ConfigManager {
   }
 
   /**
+   * 添加 SQL 到现有 API
+   * @param {string} apiId - API ID
+   * @param {string} sqlText - SQL 语句
+   * @returns {Object} 新增的 SQL 对象
+   */
+  async addSqlToApi(apiId, sqlText) {
+    const config = await this._readConfig();
+    const index = config.api.findIndex(api => api.id === apiId);
+
+    if (index === -1) {
+      throw new Error('API不存在');
+    }
+
+    const api = config.api[index];
+    const task = api.task ? JSON.parse(api.task) : [{ taskType: 1, sqlList: [] }];
+
+    const newSql = {
+      transformPlugin: null,
+      transformPluginParam: null,
+      sqlText: sqlText,
+      id: this._generateId()
+    };
+
+    if (!task[0].sqlList) {
+      task[0].sqlList = [];
+    }
+
+    task[0].sqlList.push(newSql);
+    config.api[index].task = JSON.stringify(task);
+    config.api[index].updateTime = new Date().toISOString().replace('T', ' ').substring(0, 19);
+
+    await this._saveConfig(config);
+
+    return newSql;
+  }
+
+  /**
+   * 更新特定 SQL
+   * @param {string} apiId - API ID
+   * @param {string} sqlId - SQL ID
+   * @param {string} sqlText - 新的 SQL 语句
+   */
+  async updateSql(apiId, sqlId, sqlText) {
+    const config = await this._readConfig();
+    const index = config.api.findIndex(api => api.id === apiId);
+
+    if (index === -1) {
+      throw new Error('API不存在');
+    }
+
+    const api = config.api[index];
+    const task = JSON.parse(api.task);
+    const sqlIndex = task[0].sqlList.findIndex(sql => sql.id === sqlId);
+
+    if (sqlIndex === -1) {
+      throw new Error('SQL不存在');
+    }
+
+    task[0].sqlList[sqlIndex].sqlText = sqlText;
+    config.api[index].task = JSON.stringify(task);
+    config.api[index].updateTime = new Date().toISOString().replace('T', ' ').substring(0, 19);
+
+    await this._saveConfig(config);
+
+    return task[0].sqlList[sqlIndex];
+  }
+
+  /**
+   * 删除特定 SQL
+   * @param {string} apiId - API ID
+   * @param {string} sqlId - SQL ID
+   */
+  async deleteSql(apiId, sqlId) {
+    const config = await this._readConfig();
+    const index = config.api.findIndex(api => api.id === apiId);
+
+    if (index === -1) {
+      throw new Error('API不存在');
+    }
+
+    const api = config.api[index];
+    const task = JSON.parse(api.task);
+    const sqlIndex = task[0].sqlList.findIndex(sql => sql.id === sqlId);
+
+    if (sqlIndex === -1) {
+      throw new Error('SQL不存在');
+    }
+
+    const deletedSql = task[0].sqlList.splice(sqlIndex, 1)[0];
+    config.api[index].task = JSON.stringify(task);
+    config.api[index].updateTime = new Date().toISOString().replace('T', ' ').substring(0, 19);
+
+    await this._saveConfig(config);
+
+    return deletedSql;
+  }
+
+  /**
    * 获取分组列表
    */
   getGroups() {
@@ -165,9 +335,9 @@ class ConfigManager {
    */
   getDatasources() {
     return [
-      { id: 'YYKtG9Dv', name: 'gocrm数据库' },
-      { id: 'ukG1SAgu', name: '采购IW数据库' },
-      { id: 'q45gsAZj', name: '跟单IW数据库' }
+      { id: 'YYKtG9Dv', name: 'gocrm (阿里云RDS)' },
+      { id: 'ukG1SAgu', name: '采购IW (47.104.72.198)' },
+      { id: 'q45gsAZj', name: '跟单IW (47.104.72.198)' }
     ];
   }
 
@@ -198,7 +368,7 @@ class ConfigManager {
   }
 
   /**
-   * 生成随机 ID
+   * 生成随机 ID (8位字母数字)
    */
   _generateId() {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';

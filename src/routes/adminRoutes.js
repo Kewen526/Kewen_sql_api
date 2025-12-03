@@ -23,32 +23,27 @@ export function registerAdminRoutes(fastify) {
       try {
         const apis = await configManager.getAllApis();
 
-        // 简化返回数据
-        const simpleApis = apis.map(api => {
-          const task = JSON.parse(api.task || '[{}]')[0] || {};
-          const params = JSON.parse(api.params || '[]');
-
-          return {
-            id: api.id,
-            name: api.name,
-            path: api.path,
-            note: api.note,
-            contentType: api.contentType,
-            groupId: api.groupId,
-            params,
-            datasourceId: task.datasourceId,
-            transaction: task.transaction,
-            sqlText: task.sqlList?.[0]?.sqlText || '',
-            status: api.status,
-            createTime: api.createTime,
-            updateTime: api.updateTime
-          };
-        });
+        // 返回完整数据，包含所有 SQL
+        const fullApis = apis.map(api => ({
+          id: api.id,
+          name: api.name,
+          path: api.path,
+          note: api.note,
+          contentType: api.contentType,
+          groupId: api.groupId,
+          params: api.paramsParsed,
+          datasourceId: api.datasourceId,
+          transaction: api.transaction,
+          sqlList: api.sqlList,  // 完整的 SQL 列表
+          status: api.status,
+          createTime: api.createTime,
+          updateTime: api.updateTime
+        }));
 
         return {
           success: true,
-          data: simpleApis,
-          total: simpleApis.length
+          count: fullApis.length,
+          apis: fullApis
         };
       } catch (error) {
         return reply.code(500).send({
@@ -217,6 +212,100 @@ export function registerAdminRoutes(fastify) {
     }
   });
 
+  // 添加 SQL 到 API
+  fastify.post('/admin/apis/:apiId/sql', {
+    schema: {
+      summary: '添加SQL到API',
+      tags: ['Admin']
+    },
+    handler: async (request, reply) => {
+      try {
+        const { apiId } = request.params;
+        const { sqlText } = request.body;
+
+        if (!sqlText) {
+          return reply.code(400).send({
+            success: false,
+            error: 'sqlText 不能为空'
+          });
+        }
+
+        const newSql = await configManager.addSqlToApi(apiId, sqlText);
+
+        return {
+          success: true,
+          message: 'SQL 添加成功',
+          sql: newSql
+        };
+      } catch (error) {
+        return reply.code(500).send({
+          success: false,
+          error: error.message
+        });
+      }
+    }
+  });
+
+  // 更新特定 SQL
+  fastify.put('/admin/apis/:apiId/sql/:sqlId', {
+    schema: {
+      summary: '更新特定SQL',
+      tags: ['Admin']
+    },
+    handler: async (request, reply) => {
+      try {
+        const { apiId, sqlId } = request.params;
+        const { sqlText } = request.body;
+
+        if (!sqlText) {
+          return reply.code(400).send({
+            success: false,
+            error: 'sqlText 不能为空'
+          });
+        }
+
+        const updatedSql = await configManager.updateSql(apiId, sqlId, sqlText);
+
+        return {
+          success: true,
+          message: 'SQL 更新成功',
+          sql: updatedSql
+        };
+      } catch (error) {
+        return reply.code(500).send({
+          success: false,
+          error: error.message
+        });
+      }
+    }
+  });
+
+  // 删除特定 SQL
+  fastify.delete('/admin/apis/:apiId/sql/:sqlId', {
+    schema: {
+      summary: '删除特定SQL',
+      tags: ['Admin']
+    },
+    handler: async (request, reply) => {
+      try {
+        const { apiId, sqlId } = request.params;
+
+        const deletedSql = await configManager.deleteSql(apiId, sqlId);
+
+        return {
+          success: true,
+          message: 'SQL 删除成功',
+          sql: deletedSql
+        };
+      } catch (error) {
+        return reply.code(500).send({
+          success: false,
+          error: error.message
+        });
+      }
+    }
+  });
+
   // 重启服务器（使用 PM2）
   fastify.post('/admin/restart', {
     schema: {
@@ -247,6 +336,9 @@ export function registerAdminRoutes(fastify) {
   console.log('  ✓ POST   /admin/apis                                        创建API');
   console.log('  ✓ PUT    /admin/apis/:id                                    更新API');
   console.log('  ✓ DELETE /admin/apis/:id                                    删除API');
+  console.log('  ✓ POST   /admin/apis/:apiId/sql                             添加SQL');
+  console.log('  ✓ PUT    /admin/apis/:apiId/sql/:sqlId                      更新SQL');
+  console.log('  ✓ DELETE /admin/apis/:apiId/sql/:sqlId                      删除SQL');
   console.log('  ✓ GET    /admin/groups                                      获取分组');
   console.log('  ✓ GET    /admin/datasources                                 获取数据源');
   console.log('  ✓ POST   /admin/restart                                     重启服务器');
