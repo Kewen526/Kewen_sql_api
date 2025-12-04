@@ -155,6 +155,29 @@
       border-color: #667eea;
     }
 
+    /* Toast 动画 */
+    @keyframes slideIn {
+      from {
+        transform: translateX(400px);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+
+    @keyframes slideOut {
+      from {
+        transform: translateX(0);
+        opacity: 1;
+      }
+      to {
+        transform: translateX(400px);
+        opacity: 0;
+      }
+    }
+
     .content {
       padding: 30px;
     }
@@ -1464,14 +1487,52 @@
       }
     }
 
+    // 显示临时提示消息
+    function showToast(message, type = 'success') {
+      // 创建toast元素
+      const toast = document.createElement('div');
+      toast.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 15px 25px;
+        background: ${type === 'success' ? '#28a745' : '#dc3545'};
+        color: white;
+        border-radius: 6px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        font-size: 14px;
+        font-weight: 500;
+        z-index: 10000;
+        animation: slideIn 0.3s ease;
+      `;
+      toast.textContent = message;
+
+      // 添加到页面
+      document.body.appendChild(toast);
+
+      // 3秒后自动移除
+      setTimeout(() => {
+        toast.style.animation = 'slideOut 0.3s ease';
+        setTimeout(() => {
+          document.body.removeChild(toast);
+        }, 300);
+      }, 3000);
+    }
+
     // 复制Python示例代码
-    async function copyPythonExample() {
+    async function copyPythonExample(event) {
+      // 阻止默认行为
+      if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+
       const codeElement = document.getElementById('pythonExampleCode').querySelector('pre');
       const code = codeElement.textContent;
 
       try {
         await navigator.clipboard.writeText(code);
-        alert('✅ 代码已复制到剪贴板！');
+        showToast('✅ 代码已复制到剪贴板！', 'success');
       } catch (error) {
         // 降级方案：使用传统方法
         const textarea = document.createElement('textarea');
@@ -1483,13 +1544,15 @@
 
         try {
           document.execCommand('copy');
-          alert('✅ 代码已复制到剪贴板！');
+          showToast('✅ 代码已复制到剪贴板！', 'success');
         } catch (e) {
-          alert('❌ 复制失败，请手动复制');
+          showToast('❌ 复制失败，请手动复制', 'error');
         }
 
         document.body.removeChild(textarea);
       }
+
+      return false;
     }
 
     // ========== 数据源管理功能 ==========

@@ -36,7 +36,9 @@ class PythonCodeGenerator {
    */
   _generateBasicExample(name, apiPath, method, exampleParams, baseUrl) {
     const functionName = this._pathToFunctionName(apiPath);
-    const url = `${baseUrl}${apiPath}`;
+    // 确保apiPath以斜杠开头
+    const normalizedPath = apiPath.startsWith('/') ? apiPath : `/${apiPath}`;
+    const url = `${baseUrl}${normalizedPath}`;
 
     if (method === 'GET') {
       return `import requests
@@ -82,7 +84,9 @@ if __name__ == "__main__":
    */
   _generateFullExample(name, apiPath, method, exampleParams, contentType, baseUrl) {
     const functionName = this._pathToFunctionName(apiPath);
-    const url = `${baseUrl}${apiPath}`;
+    // 确保apiPath以斜杠开头
+    const normalizedPath = apiPath.startsWith('/') ? apiPath : `/${apiPath}`;
+    const url = `${baseUrl}${normalizedPath}`;
     const paramsStr = JSON.stringify(exampleParams, null, 4);
 
     if (method === 'GET') {
@@ -286,7 +290,9 @@ if __name__ == "__main__":
    */
   _generateAsyncExample(name, apiPath, method, exampleParams, contentType, baseUrl) {
     const functionName = this._pathToFunctionName(apiPath);
-    const url = `${baseUrl}${apiPath}`;
+    // 确保apiPath以斜杠开头
+    const normalizedPath = apiPath.startsWith('/') ? apiPath : `/${apiPath}`;
+    const url = `${baseUrl}${normalizedPath}`;
     const paramsStr = JSON.stringify(exampleParams, null, 4);
 
     if (method === 'GET') {
