@@ -678,62 +678,36 @@ export function registerAdminRoutes(fastify) {
     }
   });
 
-  // 重启服务器（支持多种部署方式）
+  // 刷新API配置（热加载）
   fastify.post('/admin/restart', {
     schema: {
-      summary: '重启服务器（热加载路由）',
+      summary: '刷新API配置（热加载）',
       tags: ['Admin']
     },
     handler: async (request, reply) => {
       try {
-        // 优先使用进程内热加载（适用于所有部署方式）
-        console.log('🔄 执行路由热加载...');
+        // 清空配置缓存
+        console.log('🔄 清空API配置缓存...');
         const result = await routeReloader.reload();
 
         if (result.success) {
           return {
             success: true,
-            message: `路由热加载成功！已注册 ${result.registered} 个API，耗时 ${result.duration}`,
-            method: 'hot-reload',
+            message: `配置缓存已清空！下次请求将使用最新配置，耗时 ${result.duration}`,
+            method: 'cache-clear',
             details: result
           };
         } else {
           throw new Error(result.message);
         }
-      } catch (hotReloadError) {
-        console.error('热加载失败，尝试其他重启方式:', hotReloadError);
+      } catch (error) {
+        console.error('清空配置缓存失败:', error);
 
-        // 热加载失败，尝试检测部署方式并执行对应的重启命令
-        try {
-          // 检测是否使用PM2
-          const pm2Check = await execAsync('which pm2').catch(() => null);
-
-          if (pm2Check) {
-            // PM2部署
-            await execAsync('pm2 restart kewen-sql-api');
-            return {
-              success: true,
-              message: 'PM2重启命令已发送',
-              method: 'pm2'
-            };
-          }
-
-          // Docker/Podman部署（容器内无法直接重启容器）
-          // 返回手动操作提示
-          return reply.code(500).send({
-            success: false,
-            message: '热加载失败',
-            error: hotReloadError.message,
-            hint: '请手动重启容器: docker restart kewen-sql-api 或 podman restart kewen-sql-api'
-          });
-        } catch (commandError) {
-          return reply.code(500).send({
-            success: false,
-            message: '重启失败',
-            error: commandError.message,
-            hint: '请手动重启服务'
-          });
-        }
+        return reply.code(500).send({
+          success: false,
+          message: '清空配置缓存失败: ' + error.message,
+          hint: '如需完全重启，请手动执行: docker restart kewen-sql-api'
+        });
       }
     }
   });
