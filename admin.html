@@ -697,9 +697,9 @@
               </button>
             </div>
             <div style="display: flex; gap: 10px; margin-bottom: 10px;">
-              <button class="example-tab active" onclick="showPythonExample('basic')" id="exampleTabBasic">基础版</button>
-              <button class="example-tab" onclick="showPythonExample('full')" id="exampleTabFull">完整版（推荐）</button>
-              <button class="example-tab" onclick="showPythonExample('async')" id="exampleTabAsync">异步版</button>
+              <button type="button" class="example-tab active" onclick="showPythonExample('basic')" id="exampleTabBasic">基础版</button>
+              <button type="button" class="example-tab" onclick="showPythonExample('full')" id="exampleTabFull">完整版（推荐）</button>
+              <button type="button" class="example-tab" onclick="showPythonExample('async')" id="exampleTabAsync">异步版</button>
             </div>
             <div id="pythonExampleCode" style="background: #2d2d2d; color: #f8f8f2; border: 2px solid #dee2e6; border-radius: 6px; padding: 15px; max-height: 500px; overflow-y: auto; font-family: 'Consolas', 'Monaco', 'Courier New', monospace; font-size: 13px; line-height: 1.5;">
               <pre style="margin: 0; white-space: pre-wrap; word-wrap: break-word; color: #f8f8f2;"></pre>
@@ -708,9 +708,9 @@
         </form>
       </div>
       <div class="modal-footer">
-        <button class="btn" onclick="closeModal()">取消</button>
-        <button class="btn btn-warning" onclick="testExecuteApi()" id="testExecuteBtn" style="display: none;">🧪 测试执行</button>
-        <button class="btn btn-primary" onclick="saveApi()">保存</button>
+        <button type="button" class="btn" onclick="closeModal()">取消</button>
+        <button type="button" class="btn btn-warning" onclick="testExecuteApi()" id="testExecuteBtn" style="display: none;">🧪 测试执行</button>
+        <button type="button" class="btn btn-primary" onclick="saveApi()">保存</button>
       </div>
     </div>
   </div>
@@ -749,7 +749,7 @@
         </div>
       </div>
       <div class="modal-footer">
-        <button class="btn" onclick="closeDatasourceManagementModal()">关闭</button>
+        <button type="button" class="btn" onclick="closeDatasourceManagementModal()">关闭</button>
       </div>
     </div>
   </div>
@@ -818,9 +818,9 @@
         </form>
       </div>
       <div class="modal-footer">
-        <button class="btn" onclick="closeDatasourceModal()">取消</button>
-        <button class="btn btn-warning" onclick="testDatasourceConnection()">🧪 测试连接</button>
-        <button class="btn btn-primary" onclick="saveDatasource()">💾 保存</button>
+        <button type="button" class="btn" onclick="closeDatasourceModal()">取消</button>
+        <button type="button" class="btn btn-warning" onclick="testDatasourceConnection()">🧪 测试连接</button>
+        <button type="button" class="btn btn-primary" onclick="saveDatasource()">💾 保存</button>
       </div>
     </div>
   </div>

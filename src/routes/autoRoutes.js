@@ -76,8 +76,14 @@ async function findApiByPath(configPath, requestPath) {
 /**
  * 确定 HTTP 方法
  */
-function determineHttpMethod(apiParams) {
-  // 如果没有参数，使用 GET
+function determineHttpMethod(apiParams, contentType) {
+  // 1. 优先检查 contentType
+  // 如果明确指定了需要请求体的 contentType，则使用 POST
+  if (contentType === 'application/json' || contentType === 'application/x-www-form-urlencoded') {
+    return 'POST';
+  }
+
+  // 2. 然后检查是否有参数
   if (!apiParams || apiParams === '[]') {
     return 'GET';
   }
@@ -91,7 +97,7 @@ function determineHttpMethod(apiParams) {
     return 'GET';
   }
 
-  // 有参数默认使用 POST
+  // 3. 有参数默认使用 POST
   return 'POST';
 }
 
@@ -131,7 +137,7 @@ export async function registerAutoRoutes(fastify, configPath) {
         }
 
         // 验证HTTP方法
-        const expectedMethod = determineHttpMethod(api.params);
+        const expectedMethod = determineHttpMethod(api.params, api.contentType);
         if (request.method !== expectedMethod) {
           return reply.code(405).send({
             success: false,
