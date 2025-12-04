@@ -109,6 +109,15 @@ export async function registerAutoRoutes(fastify, configPath) {
     handler: async (request, reply) => {
       const requestPath = request.params.apiPath;
 
+      // 排除系统路由和管理路由（这些由其他路由处理）
+      if (requestPath.startsWith('admin') || requestPath === 'health') {
+        return reply.code(404).send({
+          success: false,
+          error: 'NotFound',
+          message: `路径 "/${requestPath}" 不存在`
+        });
+      }
+
       try {
         // 动态查找API配置
         const api = await findApiByPath(configPath, requestPath);
