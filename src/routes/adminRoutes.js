@@ -7,6 +7,7 @@
 import configManager from '../utils/configManager.js';
 import datasourceManager from '../utils/datasourceManager.js';
 import poolManager from '../database/pool.js';
+import routeReloader from '../utils/routeReloader.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 
@@ -130,9 +131,17 @@ export function registerAdminRoutes(fastify) {
       try {
         const newApi = await configManager.createApi(request.body);
 
+        // 🔥 自动触发路由热加载
+        try {
+          await routeReloader.reload();
+        } catch (reloadError) {
+          console.error('热加载失败:', reloadError);
+          // 热加载失败不影响API创建成功
+        }
+
         return {
           success: true,
-          message: 'API创建成功！请重启服务器使其生效。',
+          message: 'API创建成功，路由已自动更新！',
           data: newApi
         };
       } catch (error) {
@@ -162,9 +171,17 @@ export function registerAdminRoutes(fastify) {
       try {
         const updatedApi = await configManager.updateApi(request.params.id, request.body);
 
+        // 🔥 自动触发路由热加载
+        try {
+          await routeReloader.reload();
+        } catch (reloadError) {
+          console.error('热加载失败:', reloadError);
+          // 热加载失败不影响API更新成功
+        }
+
         return {
           success: true,
-          message: 'API更新成功！请重启服务器使其生效。',
+          message: 'API更新成功，路由已自动更新！',
           data: updatedApi
         };
       } catch (error) {
@@ -202,9 +219,17 @@ export function registerAdminRoutes(fastify) {
       try {
         await configManager.deleteApi(request.params.id);
 
+        // 🔥 自动触发路由热加载
+        try {
+          await routeReloader.reload();
+        } catch (reloadError) {
+          console.error('热加载失败:', reloadError);
+          // 热加载失败不影响API删除成功
+        }
+
         return {
           success: true,
-          message: 'API删除成功！请重启服务器使其生效。'
+          message: 'API删除成功，路由已自动更新！'
         };
       } catch (error) {
         return reply.code(500).send({
@@ -653,27 +678,62 @@ export function registerAdminRoutes(fastify) {
     }
   });
 
-  // 重启服务器（使用 PM2）
+  // 重启服务器（支持多种部署方式）
   fastify.post('/admin/restart', {
     schema: {
-      summary: '重启服务器',
+      summary: '重启服务器（热加载路由）',
       tags: ['Admin']
     },
     handler: async (request, reply) => {
       try {
-        // 使用 PM2 重启
-        await execAsync('pm2 restart kewen-sql-api');
+        // 优先使用进程内热加载（适用于所有部署方式）
+        console.log('🔄 执行路由热加载...');
+        const result = await routeReloader.reload();
 
-        return {
-          success: true,
-          message: '服务器重启命令已发送'
-        };
-      } catch (error) {
-        return reply.code(500).send({
-          success: false,
-          message: '重启失败: ' + error.message,
-          hint: '请手动运行: pm2 restart kewen-sql-api'
-        });
+        if (result.success) {
+          return {
+            success: true,
+            message: `路由热加载成功！已注册 ${result.registered} 个API，耗时 ${result.duration}`,
+            method: 'hot-reload',
+            details: result
+          };
+        } else {
+          throw new Error(result.message);
+        }
+      } catch (hotReloadError) {
+        console.error('热加载失败，尝试其他重启方式:', hotReloadError);
+
+        // 热加载失败，尝试检测部署方式并执行对应的重启命令
+        try {
+          // 检测是否使用PM2
+          const pm2Check = await execAsync('which pm2').catch(() => null);
+
+          if (pm2Check) {
+            // PM2部署
+            await execAsync('pm2 restart kewen-sql-api');
+            return {
+              success: true,
+              message: 'PM2重启命令已发送',
+              method: 'pm2'
+            };
+          }
+
+          // Docker/Podman部署（容器内无法直接重启容器）
+          // 返回手动操作提示
+          return reply.code(500).send({
+            success: false,
+            message: '热加载失败',
+            error: hotReloadError.message,
+            hint: '请手动重启容器: docker restart kewen-sql-api 或 podman restart kewen-sql-api'
+          });
+        } catch (commandError) {
+          return reply.code(500).send({
+            success: false,
+            message: '重启失败',
+            error: commandError.message,
+            hint: '请手动重启服务'
+          });
+        }
       }
     }
   });

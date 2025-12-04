@@ -132,6 +132,29 @@
       font-size: 12px;
     }
 
+    .example-tab {
+      padding: 8px 16px;
+      border: 2px solid #dee2e6;
+      background: white;
+      color: #495057;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .example-tab:hover {
+      border-color: #667eea;
+      color: #667eea;
+    }
+
+    .example-tab.active {
+      background: #667eea;
+      color: white;
+      border-color: #667eea;
+    }
+
     .content {
       padding: 30px;
     }
@@ -641,6 +664,24 @@
               <pre style="margin: 0; font-family: monospace; font-size: 12px; white-space: pre-wrap; word-wrap: break-word;"></pre>
             </div>
           </div>
+
+          <!-- Python 示例代码展示区域 -->
+          <div id="pythonExampleContainer" style="display: none; margin-top: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+              <label style="font-weight: 600; color: #495057; font-size: 14px;">🐍 Python 调用示例</label>
+              <button class="btn btn-small" onclick="copyPythonExample()" style="padding: 5px 15px; font-size: 12px;">
+                📋 复制代码
+              </button>
+            </div>
+            <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+              <button class="example-tab active" onclick="showPythonExample('basic')" id="exampleTabBasic">基础版</button>
+              <button class="example-tab" onclick="showPythonExample('full')" id="exampleTabFull">完整版（推荐）</button>
+              <button class="example-tab" onclick="showPythonExample('async')" id="exampleTabAsync">异步版</button>
+            </div>
+            <div id="pythonExampleCode" style="background: #2d2d2d; color: #f8f8f2; border: 2px solid #dee2e6; border-radius: 6px; padding: 15px; max-height: 500px; overflow-y: auto; font-family: 'Consolas', 'Monaco', 'Courier New', monospace; font-size: 13px; line-height: 1.5;">
+              <pre style="margin: 0; white-space: pre-wrap; word-wrap: break-word; color: #f8f8f2;"></pre>
+            </div>
+          </div>
         </form>
       </div>
       <div class="modal-footer">
@@ -1030,6 +1071,9 @@
         document.getElementById('testExecuteBtn').style.display = 'inline-flex';
         document.getElementById('testResultContainer').style.display = 'none';
 
+        // 🔥 加载Python示例代码
+        await loadPythonExample(api.id);
+
         document.getElementById('apiModal').classList.add('active');
       } catch (error) {
         alert('加载 API 失败: ' + error.message);
@@ -1355,6 +1399,97 @@
         id += chars.charAt(Math.floor(Math.random() * chars.length));
       }
       return id;
+    }
+
+    // ========== Python 示例代码功能 ==========
+
+    let currentPythonExamples = null; // 存储当前API的所有Python示例
+
+    // 获取并显示Python示例代码
+    async function loadPythonExample(apiId) {
+      if (!apiId) {
+        document.getElementById('pythonExampleContainer').style.display = 'none';
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE}/admin/apis/${apiId}/example`);
+        const result = await response.json();
+
+        if (result.success) {
+          currentPythonExamples = result.data.examples;
+
+          // 默认显示完整版
+          showPythonExample('full');
+
+          // 显示容器
+          document.getElementById('pythonExampleContainer').style.display = 'block';
+        } else {
+          console.error('获取Python示例失败:', result.message);
+          document.getElementById('pythonExampleContainer').style.display = 'none';
+        }
+      } catch (error) {
+        console.error('加载Python示例失败:', error);
+        document.getElementById('pythonExampleContainer').style.display = 'none';
+      }
+    }
+
+    // 显示指定版本的Python示例
+    function showPythonExample(version) {
+      if (!currentPythonExamples) return;
+
+      const codeElement = document.getElementById('pythonExampleCode').querySelector('pre');
+      const versionMap = {
+        'basic': currentPythonExamples.basic,
+        'full': currentPythonExamples.full,
+        'async': currentPythonExamples.async
+      };
+
+      codeElement.textContent = versionMap[version] || currentPythonExamples.full;
+
+      // 更新标签状态
+      document.querySelectorAll('.example-tab').forEach(tab => {
+        tab.classList.remove('active');
+      });
+
+      const tabMap = {
+        'basic': 'exampleTabBasic',
+        'full': 'exampleTabFull',
+        'async': 'exampleTabAsync'
+      };
+
+      const activeTabId = tabMap[version];
+      if (activeTabId) {
+        document.getElementById(activeTabId).classList.add('active');
+      }
+    }
+
+    // 复制Python示例代码
+    async function copyPythonExample() {
+      const codeElement = document.getElementById('pythonExampleCode').querySelector('pre');
+      const code = codeElement.textContent;
+
+      try {
+        await navigator.clipboard.writeText(code);
+        alert('✅ 代码已复制到剪贴板！');
+      } catch (error) {
+        // 降级方案：使用传统方法
+        const textarea = document.createElement('textarea');
+        textarea.value = code;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+
+        try {
+          document.execCommand('copy');
+          alert('✅ 代码已复制到剪贴板！');
+        } catch (e) {
+          alert('❌ 复制失败，请手动复制');
+        }
+
+        document.body.removeChild(textarea);
+      }
     }
 
     // ========== 数据源管理功能 ==========

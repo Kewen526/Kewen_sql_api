@@ -12,6 +12,8 @@ import poolManager from './database/pool.js';
 import { registerAutoRoutes } from './routes/autoRoutes.js';
 import { registerSystemRoutes } from './routes/systemRoutes.js';
 import { registerAdminRoutes } from './routes/adminRoutes.js';
+import { registerExampleRoutes } from './routes/exampleRoutes.js';
+import routeReloader from './utils/routeReloader.js';
 
 // 加载环境变量
 dotenv.config();
@@ -89,9 +91,17 @@ async function start() {
     console.log('📝 注册管理路由...');
     registerAdminRoutes(fastify);
 
-    // 5. 自动注册 API 路由
+    // 5. 注册示例代码路由
+    console.log('📝 注册示例代码路由...');
+    registerExampleRoutes(fastify);
+
+    // 6. 自动注册 API 路由
     console.log('📝 注册 API 路由...');
     await registerAutoRoutes(fastify, API_CONFIG_PATH);
+
+    // 7. 初始化路由重载器
+    console.log('🔧 初始化路由重载器...');
+    routeReloader.initialize(fastify, API_CONFIG_PATH);
 
     // 6. 启动 HTTP 服务器
     await fastify.listen({ port: PORT, host: HOST });
