@@ -464,6 +464,61 @@
       font-size: 12px;
       color: #6c757d;
     }
+
+    /* 黑色代码框样式 */
+    .code-editor {
+      font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+      font-size: 14px;
+      line-height: 1.6;
+
+      /* 黑色主题 */
+      background-color: #1e1e1e;
+      color: #d4d4d4;
+      border: 2px solid #333333;
+      border-radius: 6px;
+      padding: 15px;
+
+      /* 滚动条 */
+      overflow: auto;
+      resize: vertical;
+    }
+
+    /* 滚动条美化（Webkit） */
+    .code-editor::-webkit-scrollbar {
+      width: 12px;
+      height: 12px;
+    }
+
+    .code-editor::-webkit-scrollbar-track {
+      background: #252526;
+    }
+
+    .code-editor::-webkit-scrollbar-thumb {
+      background: #3e3e42;
+      border-radius: 6px;
+    }
+
+    .code-editor::-webkit-scrollbar-thumb:hover {
+      background: #4e4e52;
+    }
+
+    /* 选中文本颜色 */
+    .code-editor::selection {
+      background-color: #264f78;
+      color: #ffffff;
+    }
+
+    /* 占位符颜色 */
+    .code-editor::placeholder {
+      color: #6a6a6a;
+    }
+
+    /* 焦点效果 */
+    .code-editor:focus {
+      outline: none;
+      border-color: #0078d4;
+      box-shadow: 0 0 0 3px rgba(0, 120, 212, 0.2);
+    }
   </style>
 </head>
 <body>
@@ -480,6 +535,9 @@
       <div style="display: flex; gap: 10px;">
         <button class="btn btn-primary" onclick="openCreateModal()">
           ➕ 创建新 API
+        </button>
+        <button class="btn btn-primary" onclick="openDatasourceManagementModal()">
+          🗄️ 管理数据源
         </button>
         <button class="btn btn-warning" onclick="refreshApis()">
           🔄 刷新
@@ -566,13 +624,13 @@
 
           <div class="form-group">
             <label>参数定义（可选，每行一个，格式：参数名:类型:说明）</label>
-            <textarea id="apiParams" placeholder="id:int:产品ID&#10;name:string:产品名称&#10;&#10;如果SQL不需要参数，可以留空"></textarea>
+            <textarea id="apiParams" class="code-editor" rows="6" placeholder="id:int:产品ID&#10;name:string:产品名称&#10;&#10;如果SQL不需要参数，可以留空"></textarea>
             <small style="color: #6c757d; font-size: 12px;">💡 提示：如果API是GET请求或SQL不需要动态参数，可以不填写</small>
           </div>
 
           <div class="form-group">
             <label>测试参数配置（可选，JSON格式，用于测试执行）</label>
-            <textarea id="apiTestParams" placeholder='{"title": "测试标题", "shop_num": "12345", "sku": "67890"}&#10;&#10;如果不需要参数，可以留空或填写 {}' rows="6" style="font-family: monospace;"></textarea>
+            <textarea id="apiTestParams" class="code-editor" rows="8" placeholder='{"title": "测试标题", "shop_num": "12345", "sku": "67890"}&#10;&#10;如果不需要参数，可以留空或填写 {}'></textarea>
             <small style="color: #6c757d; font-size: 12px;">💡 提示：填写JSON格式的测试参数示例，点击"测试执行"按钮可直接测试SQL（新增时也可测试）</small>
           </div>
 
@@ -589,6 +647,116 @@
         <button class="btn" onclick="closeModal()">取消</button>
         <button class="btn btn-warning" onclick="testExecuteApi()" id="testExecuteBtn" style="display: none;">🧪 测试执行</button>
         <button class="btn btn-primary" onclick="saveApi()">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 数据源管理 Modal -->
+  <div class="modal" id="datasourceManagementModal">
+    <div class="modal-content" style="max-width: 1200px;">
+      <div class="modal-header">
+        <h2>🗄️ 数据源管理</h2>
+        <button class="close-btn" onclick="closeDatasourceManagementModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div style="margin-bottom: 20px;">
+          <button class="btn btn-success" onclick="openAddDatasourceModal()">
+            ➕ 添加新数据源
+          </button>
+        </div>
+
+        <!-- 数据源列表 -->
+        <div id="datasourceListContainer">
+          <table class="api-table">
+            <thead>
+              <tr>
+                <th>数据源名称</th>
+                <th>主机地址</th>
+                <th>端口</th>
+                <th>数据库</th>
+                <th>创建时间</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="datasourceTableBody">
+              <!-- 动态填充 -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="closeDatasourceManagementModal()">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 添加/编辑数据源 Modal -->
+  <div class="modal" id="datasourceModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="datasourceModalTitle">添加新数据源</h2>
+        <button class="close-btn" onclick="closeDatasourceModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="datasourceForm">
+          <input type="hidden" id="dsId">
+
+          <div class="form-group">
+            <label>数据源名称 *</label>
+            <input type="text" id="dsName" required placeholder="例如：阿里云RDS - 产品库">
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>主机地址 *</label>
+              <input type="text" id="dsHost" required placeholder="localhost 或 IP地址">
+            </div>
+            <div class="form-group">
+              <label>端口号 *</label>
+              <input type="number" id="dsPort" required value="3306" min="1" max="65535">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>用户名 *</label>
+              <input type="text" id="dsUser" required placeholder="数据库用户名">
+            </div>
+            <div class="form-group">
+              <label>密码 *</label>
+              <input type="password" id="dsPassword" required placeholder="数据库密码">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>数据库名称 *</label>
+            <input type="text" id="dsDatabase" required placeholder="要连接的数据库名">
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>最小连接数</label>
+              <input type="number" id="dsPoolMin" value="2" min="1" max="100">
+            </div>
+            <div class="form-group">
+              <label>最大连接数</label>
+              <input type="number" id="dsPoolMax" value="10" min="1" max="100">
+            </div>
+          </div>
+
+          <!-- 测试结果展示 -->
+          <div id="dsTestResultContainer" style="display: none; margin-top: 20px;">
+            <label style="font-weight: 600; color: #495057; font-size: 14px; margin-bottom: 10px; display: block;">测试连接结果</label>
+            <div id="dsTestResult" style="background: #f8f9fa; border: 2px solid #dee2e6; border-radius: 6px; padding: 15px;">
+              <pre style="margin: 0; font-family: monospace; font-size: 12px; white-space: pre-wrap; word-wrap: break-word;"></pre>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="closeDatasourceModal()">取消</button>
+        <button class="btn btn-warning" onclick="testDatasourceConnection()">🧪 测试连接</button>
+        <button class="btn btn-primary" onclick="saveDatasource()">💾 保存</button>
       </div>
     </div>
   </div>
@@ -891,8 +1059,8 @@
           <div class="sql-info">
             SQL ID: ${sql.id || '新建'} | 标签 ${index + 1}
           </div>
-          <textarea class="form-control" rows="10"
-                    style="width: 100%; padding: 10px; border: 2px solid #dee2e6; border-radius: 6px; font-family: monospace;"
+          <textarea class="code-editor" rows="12"
+                    style="width: 100%;"
                     placeholder="输入 SQL 查询语句，支持 MyBatis 参数：#{param}"
                     onchange="updateSqlText(${index}, this.value)">${sql.sqlText || ''}</textarea>
         </div>
@@ -1188,6 +1356,251 @@
       }
       return id;
     }
+
+    // ========== 数据源管理功能 ==========
+
+    // 打开数据源管理 Modal
+    async function openDatasourceManagementModal() {
+      try {
+        await loadDatasourcesList();
+        document.getElementById('datasourceManagementModal').classList.add('active');
+      } catch (error) {
+        alert('❌ 加载数据源列表失败: ' + error.message);
+      }
+    }
+
+    // 关闭数据源管理 Modal
+    function closeDatasourceManagementModal() {
+      document.getElementById('datasourceManagementModal').classList.remove('active');
+    }
+
+    // 打开添加数据源 Modal
+    function openAddDatasourceModal() {
+      document.getElementById('datasourceModalTitle').textContent = '添加新数据源';
+      document.getElementById('dsId').value = '';
+      document.getElementById('dsName').value = '';
+      document.getElementById('dsHost').value = '';
+      document.getElementById('dsPort').value = '3306';
+      document.getElementById('dsUser').value = '';
+      document.getElementById('dsPassword').value = '';
+      document.getElementById('dsDatabase').value = '';
+      document.getElementById('dsPoolMin').value = '2';
+      document.getElementById('dsPoolMax').value = '10';
+      document.getElementById('dsTestResultContainer').style.display = 'none';
+
+      document.getElementById('datasourceModal').classList.add('active');
+    }
+
+    // 编辑数据源
+    async function editDatasource(id) {
+      try {
+        const response = await fetch(`${API_BASE}/admin/datasources/${id}`);
+        const result = await response.json();
+
+        if (!result.success) {
+          throw new Error(result.message);
+        }
+
+        const ds = result.data;
+
+        document.getElementById('datasourceModalTitle').textContent = '编辑数据源';
+        document.getElementById('dsId').value = ds.id;
+        document.getElementById('dsName').value = ds.name;
+        document.getElementById('dsHost').value = ds.host;
+        document.getElementById('dsPort').value = ds.port;
+        document.getElementById('dsUser').value = ds.user;
+        document.getElementById('dsPassword').value = ''; // 密码不回显
+        document.getElementById('dsDatabase').value = ds.database;
+        document.getElementById('dsPoolMin').value = ds.poolMin || 2;
+        document.getElementById('dsPoolMax').value = ds.poolMax || 10;
+        document.getElementById('dsTestResultContainer').style.display = 'none';
+
+        document.getElementById('datasourceModal').classList.add('active');
+      } catch (error) {
+        alert('❌ 加载数据源失败: ' + error.message);
+      }
+    }
+
+    // 关闭数据源编辑 Modal
+    function closeDatasourceModal() {
+      document.getElementById('datasourceModal').classList.remove('active');
+    }
+
+    // 加载数据源列表
+    async function loadDatasourcesList() {
+      try {
+        const response = await fetch(`${API_BASE}/admin/datasources`);
+        const result = await response.json();
+
+        if (!result.success) {
+          throw new Error(result.message);
+        }
+
+        const datasourceList = result.data || [];
+        const tbody = document.getElementById('datasourceTableBody');
+
+        if (datasourceList.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" class="empty-state">暂无数据源，请添加新数据源</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = datasourceList.map(ds => `
+          <tr>
+            <td>${ds.name}</td>
+            <td>${ds.host}</td>
+            <td>${ds.port}</td>
+            <td>${ds.database}</td>
+            <td>${ds.createTime || '-'}</td>
+            <td class="actions">
+              <button class="btn btn-sm btn-primary" onclick="editDatasource('${ds.id}')">编辑</button>
+              <button class="btn btn-sm btn-danger" onclick="deleteDatasource('${ds.id}', '${ds.name}')">删除</button>
+            </td>
+          </tr>
+        `).join('');
+      } catch (error) {
+        console.error('加载数据源列表失败:', error);
+        throw error;
+      }
+    }
+
+    // 测试数据源连接
+    async function testDatasourceConnection() {
+      const host = document.getElementById('dsHost').value.trim();
+      const port = parseInt(document.getElementById('dsPort').value);
+      const user = document.getElementById('dsUser').value.trim();
+      const password = document.getElementById('dsPassword').value.trim();
+      const database = document.getElementById('dsDatabase').value.trim();
+
+      if (!host || !user || !password || !database) {
+        alert('⚠️ 请填写所有必填字段');
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE}/admin/datasources/test`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ host, port, user, password, database })
+        });
+
+        const result = await response.json();
+        const container = document.getElementById('dsTestResultContainer');
+        const resultElement = container.querySelector('pre');
+
+        container.style.display = 'block';
+
+        if (result.success) {
+          resultElement.style.color = '#28a745';
+          resultElement.textContent =
+            `✅ ${result.message}\n\n` +
+            `数据库：${result.data.database}\n` +
+            `主机：${result.data.host}`;
+        } else {
+          resultElement.style.color = '#dc3545';
+          resultElement.textContent =
+            `❌ ${result.message}\n\n` +
+            `错误代码：${result.error || '未知'}`;
+        }
+      } catch (error) {
+        const container = document.getElementById('dsTestResultContainer');
+        const resultElement = container.querySelector('pre');
+        container.style.display = 'block';
+        resultElement.style.color = '#dc3545';
+        resultElement.textContent = `❌ 测试连接失败\n\n错误：${error.message}`;
+      }
+    }
+
+    // 保存数据源
+    async function saveDatasource() {
+      const id = document.getElementById('dsId').value;
+      const name = document.getElementById('dsName').value.trim();
+      const host = document.getElementById('dsHost').value.trim();
+      const port = parseInt(document.getElementById('dsPort').value);
+      const user = document.getElementById('dsUser').value.trim();
+      const password = document.getElementById('dsPassword').value.trim();
+      const database = document.getElementById('dsDatabase').value.trim();
+      const poolMin = parseInt(document.getElementById('dsPoolMin').value);
+      const poolMax = parseInt(document.getElementById('dsPoolMax').value);
+
+      if (!name || !host || !user || !database) {
+        alert('⚠️ 请填写所有必填字段');
+        return;
+      }
+
+      if (!password && !id) {
+        alert('⚠️ 请输入密码');
+        return;
+      }
+
+      try {
+        const dsData = { name, host, port, user, database, poolMin, poolMax };
+
+        // 只有在创建新数据源或修改密码时才包含密码
+        if (password) {
+          dsData.password = password;
+        }
+
+        const url = id ? `${API_BASE}/admin/datasources/${id}` : `${API_BASE}/admin/datasources`;
+        const method = id ? 'PUT' : 'POST';
+
+        const response = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(dsData)
+        });
+
+        const result = await response.json();
+
+        if (!result.success) {
+          throw new Error(result.message);
+        }
+
+        alert(id ? '✅ 数据源更新成功！' : '✅ 数据源创建成功！');
+        closeDatasourceModal();
+        await loadDatasourcesList();
+        await loadMetadata(); // 重新加载元数据，更新数据源下拉列表
+      } catch (error) {
+        alert('❌ 保存失败\n\n' + error.message);
+      }
+    }
+
+    // 删除数据源
+    async function deleteDatasource(id, name) {
+      if (!confirm(`确定要删除数据源 "${name}" 吗？\n\n⚠️ 警告：删除后，使用该数据源的API将无法正常工作！\n\n此操作不可恢复！`)) {
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE}/admin/datasources/${id}`, {
+          method: 'DELETE'
+        });
+
+        const result = await response.json();
+
+        if (!result.success) {
+          throw new Error(result.message);
+        }
+
+        alert('✅ 数据源删除成功！');
+        await loadDatasourcesList();
+        await loadMetadata(); // 重新加载元数据
+      } catch (error) {
+        alert('❌ 删除失败: ' + error.message);
+      }
+    }
+
+    // 点击 Modal 外部关闭
+    document.getElementById('datasourceManagementModal').addEventListener('click', (e) => {
+      if (e.target.id === 'datasourceManagementModal') {
+        closeDatasourceManagementModal();
+      }
+    });
+
+    document.getElementById('datasourceModal').addEventListener('click', (e) => {
+      if (e.target.id === 'datasourceModal') {
+        closeDatasourceModal();
+      }
+    });
   </script>
 </body>
 </html>
