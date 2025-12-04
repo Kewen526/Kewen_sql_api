@@ -1,9 +1,12 @@
 /**
  * 管理后端 API
  * 提供 API 配置的增删改查功能
+ * 提供数据源的增删改查功能
  */
 
 import configManager from '../utils/configManager.js';
+import datasourceManager from '../utils/datasourceManager.js';
+import poolManager from '../database/pool.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 
@@ -233,10 +236,224 @@ export function registerAdminRoutes(fastify) {
       tags: ['Admin']
     },
     handler: async (request, reply) => {
-      return {
-        success: true,
-        data: configManager.getDatasources()
-      };
+      try {
+        const datasources = await datasourceManager.getDatasourcesList();
+        return {
+          success: true,
+          data: datasources
+        };
+      } catch (error) {
+        return reply.code(500).send({
+          success: false,
+          message: error.message
+        });
+      }
+    }
+  });
+
+  // 获取单个数据源详情
+  fastify.get('/admin/datasources/:id', {
+    schema: {
+      summary: '获取单个数据源详情',
+      tags: ['Admin']
+    },
+    handler: async (request, reply) => {
+      try {
+        const datasource = await datasourceManager.getDatasourceById(request.params.id);
+
+        if (!datasource) {
+          return reply.code(404).send({
+            success: false,
+            message: '数据源不存在'
+          });
+        }
+
+        // 不返回密码
+        const { password, ...safeData } = datasource;
+
+        return {
+          success: true,
+          data: safeData
+        };
+      } catch (error) {
+        return reply.code(500).send({
+          success: false,
+          message: error.message
+        });
+      }
+    }
+  });
+
+  // 创建新数据源
+  fastify.post('/admin/datasources', {
+    schema: {
+      summary: '创建新数据源',
+      tags: ['Admin'],
+      body: {
+        type: 'object',
+        required: ['name', 'host', 'user', 'password', 'database'],
+        properties: {
+          name: { type: 'string' },
+          host: { type: 'string' },
+          port: { type: 'number' },
+          user: { type: 'string' },
+          password: { type: 'string' },
+          database: { type: 'string' },
+          poolMin: { type: 'number' },
+          poolMax: { type: 'number' }
+        }
+      }
+    },
+    handler: async (request, reply) => {
+      try {
+        const newDatasource = await datasourceManager.createDatasource(request.body);
+
+        // 动态添加到连接池
+        try {
+          await poolManager.addDatasourcePool(newDatasource);
+        } catch (poolError) {
+          console.error('添加到连接池失败:', poolError.message);
+          // 即使添加到连接池失败，数据源配置也已保存
+        }
+
+        // 不返回密码
+        const { password, ...safeData } = newDatasource;
+
+        return {
+          success: true,
+          message: '数据源创建成功',
+          data: safeData
+        };
+      } catch (error) {
+        return reply.code(500).send({
+          success: false,
+          message: error.message
+        });
+      }
+    }
+  });
+
+  // 更新数据源
+  fastify.put('/admin/datasources/:id', {
+    schema: {
+      summary: '更新数据源',
+      tags: ['Admin']
+    },
+    handler: async (request, reply) => {
+      try {
+        const updatedDatasource = await datasourceManager.updateDatasource(
+          request.params.id,
+          request.body
+        );
+
+        // 重新加载连接池
+        try {
+          await poolManager.reloadDatasourcePool(request.params.id, updatedDatasource);
+        } catch (poolError) {
+          console.error('重新加载连接池失败:', poolError.message);
+        }
+
+        // 不返回密码
+        const { password, ...safeData } = updatedDatasource;
+
+        return {
+          success: true,
+          message: '数据源更新成功',
+          data: safeData
+        };
+      } catch (error) {
+        if (error.message === '数据源不存在') {
+          return reply.code(404).send({
+            success: false,
+            message: error.message
+          });
+        }
+
+        return reply.code(500).send({
+          success: false,
+          message: error.message
+        });
+      }
+    }
+  });
+
+  // 删除数据源
+  fastify.delete('/admin/datasources/:id', {
+    schema: {
+      summary: '删除数据源',
+      tags: ['Admin']
+    },
+    handler: async (request, reply) => {
+      try {
+        await datasourceManager.deleteDatasource(request.params.id);
+
+        // 从连接池中删除
+        try {
+          await poolManager.removeDatasourcePool(request.params.id);
+        } catch (poolError) {
+          console.error('从连接池删除失败:', poolError.message);
+        }
+
+        return {
+          success: true,
+          message: '数据源删除成功'
+        };
+      } catch (error) {
+        if (error.message === '数据源不存在') {
+          return reply.code(404).send({
+            success: false,
+            message: error.message
+          });
+        }
+
+        return reply.code(500).send({
+          success: false,
+          message: error.message
+        });
+      }
+    }
+  });
+
+  // 测试数据源连接
+  fastify.post('/admin/datasources/test', {
+    schema: {
+      summary: '测试数据源连接',
+      tags: ['Admin'],
+      body: {
+        type: 'object',
+        required: ['host', 'user', 'password', 'database'],
+        properties: {
+          host: { type: 'string' },
+          port: { type: 'number' },
+          user: { type: 'string' },
+          password: { type: 'string' },
+          database: { type: 'string' }
+        }
+      }
+    },
+    handler: async (request, reply) => {
+      try {
+        const result = await datasourceManager.testConnection(request.body);
+
+        if (result.success) {
+          return {
+            success: true,
+            message: result.message,
+            data: result.serverInfo
+          };
+        } else {
+          return reply.code(400).send({
+            success: false,
+            message: result.message,
+            error: result.error
+          });
+        }
+      } catch (error) {
+        return reply.code(500).send({
+          success: false,
+          message: '测试连接失败: ' + error.message
+        });
+      }
     }
   });
 
@@ -472,6 +689,11 @@ export function registerAdminRoutes(fastify) {
   console.log('  ✓ POST   /admin/test-execute                                临时测试执行SQL');
   console.log('  ✓ POST   /admin/apis/:id/test-execute                       测试执行API');
   console.log('  ✓ GET    /admin/groups                                      获取分组');
-  console.log('  ✓ GET    /admin/datasources                                 获取数据源');
+  console.log('  ✓ GET    /admin/datasources                                 获取数据源列表');
+  console.log('  ✓ GET    /admin/datasources/:id                             获取单个数据源');
+  console.log('  ✓ POST   /admin/datasources                                 创建数据源');
+  console.log('  ✓ PUT    /admin/datasources/:id                             更新数据源');
+  console.log('  ✓ DELETE /admin/datasources/:id                             删除数据源');
+  console.log('  ✓ POST   /admin/datasources/test                            测试数据源连接');
   console.log('  ✓ POST   /admin/restart                                     重启服务器');
 }

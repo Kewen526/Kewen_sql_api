@@ -1,19 +1,15 @@
 /**
  * 数据库连接池管理器
- * 支持多数据源、连接池复用、自动重连
+ * 支持多数据源、连接池复用、自动重连、动态添加数据源
  * 优化内存占用和并发性能
  */
 
 import mysql from 'mysql2/promise';
+import datasourceManager from '../utils/datasourceManager.js';
 
 class DatabasePoolManager {
   constructor() {
     this.pools = new Map();
-    this.datasourceMapping = {
-      'YYKtG9Dv': 'DB1', // 产品/订单库
-      'ukG1SAgu': 'DB2', // 采购库
-      'q45gsAZj': 'DB3'  // 任务库
-    };
   }
 
   /**
@@ -22,16 +18,19 @@ class DatabasePoolManager {
   async initialize(config) {
     console.log('🔌 初始化数据库连接池...');
 
-    for (const [datasourceId, envPrefix] of Object.entries(this.datasourceMapping)) {
+    // 从 datasourceManager 读取所有数据源配置
+    const datasources = await datasourceManager.getAllDatasources(config);
+
+    for (const ds of datasources) {
       const poolConfig = {
-        host: config[`${envPrefix}_HOST`],
-        port: parseInt(config[`${envPrefix}_PORT`]) || 3306,
-        user: config[`${envPrefix}_USER`],
-        password: config[`${envPrefix}_PASSWORD`],
-        database: config[`${envPrefix}_DATABASE`],
+        host: ds.host,
+        port: ds.port,
+        user: ds.user,
+        password: ds.password,
+        database: ds.database,
 
         // 连接池配置 - 优化内存和并发
-        connectionLimit: parseInt(config[`${envPrefix}_POOL_MAX`]) || 30, // 增加到30以支持多SQL并发
+        connectionLimit: ds.poolMax || 30, // 增加到30以支持多SQL并发
         queueLimit: 0, // 不限制队列，避免拒绝请求
         waitForConnections: true,
         enableKeepAlive: true,
@@ -55,13 +54,13 @@ class DatabasePoolManager {
 
         // 测试连接
         const connection = await pool.getConnection();
-        console.log(`✅ 数据源 ${datasourceId} (${poolConfig.database}) 连接成功`);
+        console.log(`✅ 数据源 ${ds.id} (${ds.name} - ${poolConfig.database}) 连接成功`);
         connection.release();
 
-        this.pools.set(datasourceId, pool);
+        this.pools.set(ds.id, pool);
       } catch (error) {
-        console.error(`❌ 数据源 ${datasourceId} 连接失败:`, error.message);
-        console.warn(`⚠️  数据源 ${datasourceId} 将被跳过，相关API将无法使用`);
+        console.error(`❌ 数据源 ${ds.id} (${ds.name}) 连接失败:`, error.message);
+        console.warn(`⚠️  数据源 ${ds.id} 将被跳过，相关API将无法使用`);
         // 不抛出错误，继续初始化其他数据源
       }
     }
@@ -156,6 +155,84 @@ class DatabasePoolManager {
       };
     }
     return status;
+  }
+
+  /**
+   * 动态添加新的数据源连接池
+   * @param {Object} dsConfig - 数据源配置
+   * @returns {boolean} 是否添加成功
+   */
+  async addDatasourcePool(dsConfig) {
+    try {
+      const poolConfig = {
+        host: dsConfig.host,
+        port: parseInt(dsConfig.port) || 3306,
+        user: dsConfig.user,
+        password: dsConfig.password,
+        database: dsConfig.database,
+        connectionLimit: dsConfig.poolMax || 30,
+        queueLimit: 0,
+        waitForConnections: true,
+        enableKeepAlive: true,
+        keepAliveInitialDelay: 0,
+        connectTimeout: 10000,
+        multipleStatements: true,
+        namedPlaceholders: false,
+        dateStrings: true,
+        charset: 'utf8mb4',
+        timezone: '+08:00'
+      };
+
+      const pool = mysql.createPool(poolConfig);
+
+      // 测试连接
+      const connection = await pool.getConnection();
+      console.log(`✅ 新数据源 ${dsConfig.id} (${dsConfig.name}) 连接成功`);
+      connection.release();
+
+      this.pools.set(dsConfig.id, pool);
+      return true;
+    } catch (error) {
+      console.error(`❌ 新数据源 ${dsConfig.id} 连接失败:`, error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * 动态删除数据源连接池
+   * @param {string} datasourceId - 数据源ID
+   * @returns {boolean} 是否删除成功
+   */
+  async removeDatasourcePool(datasourceId) {
+    const pool = this.pools.get(datasourceId);
+    if (!pool) {
+      console.warn(`⚠️  数据源 ${datasourceId} 不存在`);
+      return false;
+    }
+
+    try {
+      await pool.end();
+      this.pools.delete(datasourceId);
+      console.log(`✅ 数据源 ${datasourceId} 连接池已关闭并删除`);
+      return true;
+    } catch (error) {
+      console.error(`❌ 数据源 ${datasourceId} 关闭失败:`, error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * 重新加载数据源连接池
+   * @param {string} datasourceId - 数据源ID
+   * @param {Object} dsConfig - 新的数据源配置
+   * @returns {boolean} 是否重新加载成功
+   */
+  async reloadDatasourcePool(datasourceId, dsConfig) {
+    // 先删除旧的连接池
+    await this.removeDatasourcePool(datasourceId);
+    // 再添加新的连接池
+    await this.addDatasourcePool(dsConfig);
+    return true;
   }
 }
 

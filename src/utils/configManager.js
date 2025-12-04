@@ -7,6 +7,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import datasourceManager from './datasourceManager.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -362,12 +363,17 @@ class ConfigManager {
   /**
    * 获取数据源列表
    */
-  getDatasources() {
-    return [
-      { id: 'YYKtG9Dv', name: 'gocrm (阿里云RDS)' },
-      { id: 'ukG1SAgu', name: '采购IW (47.104.72.198)' },
-      { id: 'q45gsAZj', name: '跟单IW (47.104.72.198)' }
-    ];
+  async getDatasources() {
+    try {
+      const datasources = await datasourceManager.getDatasourcesList();
+      return datasources.map(ds => ({
+        id: ds.id,
+        name: ds.name
+      }));
+    } catch (error) {
+      console.error('获取数据源列表失败:', error);
+      return [];
+    }
   }
 
   /**
