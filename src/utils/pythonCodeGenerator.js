@@ -57,37 +57,10 @@ if __name__ == "__main__":
     result = ${functionName}()
     print(result)`;
     } else {
-      // POST - 根据 contentType 生成不同格式的代码
+      // POST - 统一使用 JSON 格式（更通用，避免 415 错误）
       const paramsStr = JSON.stringify(exampleParams, null, 4);
 
-      if (contentType === 'application/x-www-form-urlencoded') {
-        // 表单格式（DBAPI 风格）
-        return `import requests
-from urllib import parse
-
-def ${functionName}(${this._generateParamSignature(exampleParams)}):
-    """${name}"""
-    requestUrl = "${url}"
-
-    headers = {
-        'Content-Type': 'application/x-www-form-urlencoded'
-    }
-
-    formData = ${paramsStr}
-
-    data = parse.urlencode(formData, True)
-    response = requests.post(requestUrl, headers=headers, data=data)
-    result = response.json()
-
-    return result
-
-# 使用示例
-if __name__ == "__main__":
-    result = ${functionName}(${this._generateParamCall(exampleParams)})
-    print(result)`;
-      } else {
-        // JSON 格式（默认）
-        return `import requests
+      return `import requests
 
 def ${functionName}(${this._generateParamSignature(exampleParams)}):
     """${name}"""
@@ -104,7 +77,6 @@ def ${functionName}(${this._generateParamSignature(exampleParams)}):
 if __name__ == "__main__":
     result = ${functionName}(${this._generateParamCall(exampleParams)})
     print(result)`;
-      }
     }
   }
 
@@ -205,121 +177,8 @@ if __name__ == "__main__":
     else:
         print("❌ 获取失败！")`;
     } else {
-      // POST - 根据 contentType 生成不同格式的代码
-      if (contentType === 'application/x-www-form-urlencoded') {
-        // 表单格式（DBAPI 风格）
-        return `import os
-import requests
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
-from urllib import parse
-import json
-
-# 禁用系统代理
-os.environ['NO_PROXY'] = '*'
-os.environ['no_proxy'] = '*'
-os.environ['HTTP_PROXY'] = ''
-os.environ['HTTPS_PROXY'] = ''
-os.environ['http_proxy'] = ''
-os.environ['https_proxy'] = ''
-
-def ${functionName}(${this._generateParamSignature(exampleParams)}):
-    """
-    ${name}
-
-    Args:
-${this._generateParamDocs(exampleParams)}
-
-    Returns:
-        dict: API返回的数据
-    """
-    requestUrl = "${url}"
-
-    # 请求头
-    headers = {
-        'Content-Type': 'application/x-www-form-urlencoded'
-    }
-
-    # 请求参数
-    formData = ${paramsStr}
-
-    # 配置重试策略
-    retry_strategy = Retry(
-        total=3,
-        backoff_factor=1,
-        status_forcelist=[429, 500, 502, 503, 504]
-    )
-
-    # 创建session，禁用代理
-    session = requests.Session()
-    session.proxies = {
-        'http': None,
-        'https': None
-    }
-    session.trust_env = False
-
-    adapter = HTTPAdapter(max_retries=retry_strategy)
-    session.mount("http://", adapter)
-    session.mount("https://", adapter)
-
-    try:
-        # 转换为表单格式
-        data = parse.urlencode(formData, True)
-
-        response = session.post(
-            requestUrl,
-            data=data,
-            headers=headers,
-            timeout=30
-        )
-
-        response.raise_for_status()
-
-        result = response.json()
-
-        if result.get('success'):
-            return result.get('data')
-        else:
-            print(f"❌ API返回错误: {result.get('message')}")
-            return None
-
-    except requests.exceptions.Timeout:
-        print(f"❌ 请求超时: {requestUrl}")
-        return None
-
-    except requests.exceptions.ConnectionError as e:
-        print(f"❌ 连接错误: {e}")
-        return None
-
-    except requests.exceptions.HTTPError as e:
-        print(f"❌ HTTP错误: {e}")
-        print(f"响应状态码: {response.status_code}")
-        print(f"响应内容: {response.text}")
-        return None
-
-    except requests.exceptions.RequestException as e:
-        print(f"❌ 请求异常: {e}")
-        return None
-
-    except ValueError as e:
-        print(f"❌ JSON解析错误: {e}")
-        return None
-
-    finally:
-        session.close()
-
-# 使用示例
-if __name__ == "__main__":
-    result = ${functionName}(${this._generateParamCall(exampleParams)})
-
-    if result:
-        print("✅ 获取成功！")
-        print(json.dumps(result, indent=2, ensure_ascii=False))
-    else:
-        print("❌ 获取失败！")`;
-      } else {
-        // JSON 格式（默认）
-        return `import os
+      // POST - 统一使用 JSON 格式（更通用，避免 415 错误）
+      return `import os
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
@@ -348,11 +207,6 @@ ${this._generateParamDocs(exampleParams)}
     # 请求参数
     payload = ${paramsStr}
 
-    # 请求头
-    headers = {
-        'Content-Type': '${contentType || 'application/json'}'
-    }
-
     # 配置重试策略
     retry_strategy = Retry(
         total=3,
@@ -376,7 +230,6 @@ ${this._generateParamDocs(exampleParams)}
         response = session.post(
             url,
             json=payload,
-            headers=headers,
             timeout=30
         )
 
@@ -424,7 +277,6 @@ if __name__ == "__main__":
         print(json.dumps(result, indent=2, ensure_ascii=False))
     else:
         print("❌ 获取失败！")`;
-      }
     }
   }
 
@@ -479,70 +331,8 @@ async def main():
 if __name__ == "__main__":
     asyncio.run(main())`;
     } else {
-      // POST - 根据 contentType 生成不同格式的代码
-      if (contentType === 'application/x-www-form-urlencoded') {
-        // 表单格式（DBAPI 风格）
-        return `import asyncio
-import aiohttp
-from urllib import parse
-import json
-
-async def ${functionName}(${this._generateParamSignature(exampleParams)}):
-    """
-    ${name}（异步版本）
-
-    Args:
-${this._generateParamDocs(exampleParams)}
-
-    Returns:
-        dict: API返回的数据
-    """
-    requestUrl = "${url}"
-
-    headers = {
-        'Content-Type': 'application/x-www-form-urlencoded'
-    }
-
-    formData = ${paramsStr}
-
-    # 转换为表单格式
-    data = parse.urlencode(formData, True)
-
-    timeout = aiohttp.ClientTimeout(total=30)
-
-    async with aiohttp.ClientSession(timeout=timeout) as session:
-        try:
-            async with session.post(requestUrl, data=data, headers=headers) as response:
-                response.raise_for_status()
-                result = await response.json()
-
-                if result.get('success'):
-                    return result.get('data')
-                else:
-                    print(f"❌ API返回错误: {result.get('message')}")
-                    return None
-
-        except asyncio.TimeoutError:
-            print(f"❌ 请求超时: {requestUrl}")
-            return None
-        except aiohttp.ClientError as e:
-            print(f"❌ 请求错误: {e}")
-            return None
-
-# 使用示例
-async def main():
-    result = await ${functionName}(${this._generateParamCall(exampleParams)})
-    if result:
-        print("✅ 获取成功！")
-        print(json.dumps(result, indent=2, ensure_ascii=False))
-    else:
-        print("❌ 获取失败！")
-
-if __name__ == "__main__":
-    asyncio.run(main())`;
-      } else {
-        // JSON 格式（默认）
-        return `import asyncio
+      // POST - 统一使用 JSON 格式（更通用，避免 415 错误）
+      return `import asyncio
 import aiohttp
 import json
 
@@ -560,15 +350,11 @@ ${this._generateParamDocs(exampleParams)}
 
     payload = ${paramsStr}
 
-    headers = {
-        'Content-Type': '${contentType || 'application/json'}'
-    }
-
     timeout = aiohttp.ClientTimeout(total=30)
 
     async with aiohttp.ClientSession(timeout=timeout) as session:
         try:
-            async with session.post(url, json=payload, headers=headers) as response:
+            async with session.post(url, json=payload) as response:
                 response.raise_for_status()
                 result = await response.json()
 
@@ -596,7 +382,6 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())`;
-      }
     }
   }
 
