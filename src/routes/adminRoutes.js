@@ -247,10 +247,113 @@ export function registerAdminRoutes(fastify) {
       tags: ['Admin']
     },
     handler: async (request, reply) => {
+      const groups = await configManager.getGroups();
       return {
         success: true,
-        data: configManager.getGroups()
+        data: groups
       };
+    }
+  });
+
+  // 创建新分组
+  fastify.post('/admin/groups', {
+    schema: {
+      summary: '创建新分组',
+      tags: ['Admin'],
+      body: {
+        type: 'object',
+        required: ['name'],
+        properties: {
+          name: { type: 'string', description: '分组名称' },
+          description: { type: 'string', description: '分组描述' },
+          order: { type: 'number', description: '排序序号' }
+        }
+      }
+    },
+    handler: async (request, reply) => {
+      try {
+        const newGroup = await configManager.addGroup(request.body);
+        return {
+          success: true,
+          data: newGroup,
+          message: '分组创建成功'
+        };
+      } catch (error) {
+        return reply.code(500).send({
+          success: false,
+          error: 'CreateGroupError',
+          message: error.message
+        });
+      }
+    }
+  });
+
+  // 更新分组
+  fastify.put('/admin/groups/:groupId', {
+    schema: {
+      summary: '更新分组',
+      tags: ['Admin'],
+      params: {
+        type: 'object',
+        properties: {
+          groupId: { type: 'string', description: '分组ID' }
+        }
+      },
+      body: {
+        type: 'object',
+        properties: {
+          name: { type: 'string', description: '分组名称' },
+          description: { type: 'string', description: '分组描述' },
+          order: { type: 'number', description: '排序序号' }
+        }
+      }
+    },
+    handler: async (request, reply) => {
+      try {
+        const { groupId } = request.params;
+        const updatedGroup = await configManager.updateGroup(groupId, request.body);
+        return {
+          success: true,
+          data: updatedGroup,
+          message: '分组更新成功'
+        };
+      } catch (error) {
+        return reply.code(error.message === '分组不存在' ? 404 : 500).send({
+          success: false,
+          error: error.message === '分组不存在' ? 'GroupNotFound' : 'UpdateGroupError',
+          message: error.message
+        });
+      }
+    }
+  });
+
+  // 删除分组
+  fastify.delete('/admin/groups/:groupId', {
+    schema: {
+      summary: '删除分组',
+      tags: ['Admin'],
+      params: {
+        type: 'object',
+        properties: {
+          groupId: { type: 'string', description: '分组ID' }
+        }
+      }
+    },
+    handler: async (request, reply) => {
+      try {
+        const { groupId } = request.params;
+        await configManager.deleteGroup(groupId);
+        return {
+          success: true,
+          message: '分组删除成功'
+        };
+      } catch (error) {
+        return reply.code(error.message === '分组不存在' ? 404 : 500).send({
+          success: false,
+          error: error.message === '分组不存在' ? 'GroupNotFound' : 'DeleteGroupError',
+          message: error.message
+        });
+      }
     }
   });
 
