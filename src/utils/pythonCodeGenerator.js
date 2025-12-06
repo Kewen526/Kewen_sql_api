@@ -426,12 +426,19 @@ if __name__ == "__main__":
   }
 
   /**
-   * 确定HTTP方法
+   * 确定HTTP方法（与运行时逻辑保持一致）
    */
   _determineMethod(params, contentType) {
+    // 1. 优先检查 contentType（与 autoRoutes.js 逻辑一致）
+    if (contentType === 'application/json' || contentType === 'application/x-www-form-urlencoded') {
+      return 'POST';
+    }
+
+    // 2. 再检查参数
     if (!params || params.length === 0) {
       return 'GET';
     }
+
     return 'POST';
   }
 

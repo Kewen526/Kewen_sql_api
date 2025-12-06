@@ -41,9 +41,12 @@ services:
       retries: 3
       start_period: 10s
 
-    # 挂载日志目录
+    # 挂载目录和配置文件（确保数据持久化）
     volumes:
       - ./logs:/app/logs
+      - ./api_config (1).json:/app/api_config (1).json
+      - ./datasources.json:/app/datasources.json
+      - ./groups.json:/app/groups.json
 
     # 网络配置
     networks:

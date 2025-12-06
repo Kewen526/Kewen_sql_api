@@ -585,6 +585,9 @@
         <button class="btn btn-primary" onclick="openDatasourceManagementModal()">
           🗄️ 管理数据源
         </button>
+        <button class="btn btn-primary" onclick="openGroupManagementModal()">
+          📁 管理分组
+        </button>
         <button class="btn btn-warning" onclick="refreshApis()">
           🔄 刷新
         </button>
@@ -821,6 +824,77 @@
         <button type="button" class="btn" onclick="closeDatasourceModal()">取消</button>
         <button type="button" class="btn btn-warning" onclick="testDatasourceConnection()">🧪 测试连接</button>
         <button type="button" class="btn btn-primary" onclick="saveDatasource()">💾 保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 分组管理 Modal -->
+  <div class="modal" id="groupManagementModal">
+    <div class="modal-content" style="max-width: 900px;">
+      <div class="modal-header">
+        <h2>📁 分组管理</h2>
+        <button class="close-btn" onclick="closeGroupManagementModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div style="margin-bottom: 20px;">
+          <button class="btn btn-success" onclick="openAddGroupModal()">
+            ➕ 添加新分组
+          </button>
+        </div>
+
+        <!-- 分组列表 -->
+        <div id="groupListContainer">
+          <table class="api-table">
+            <thead>
+              <tr>
+                <th style="width: 30%;">分组名称</th>
+                <th style="width: 40%;">描述</th>
+                <th style="width: 10%;">排序</th>
+                <th style="width: 20%;">操作</th>
+              </tr>
+            </thead>
+            <tbody id="groupTableBody">
+              <!-- 动态填充 -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn" onclick="closeGroupManagementModal()">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 添加/编辑分组 Modal -->
+  <div class="modal" id="groupModal">
+    <div class="modal-content" style="max-width: 600px;">
+      <div class="modal-header">
+        <h2 id="groupModalTitle">添加新分组</h2>
+        <button class="close-btn" onclick="closeGroupModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="groupForm">
+          <input type="hidden" id="groupId">
+
+          <div class="form-group">
+            <label>分组名称 *</label>
+            <input type="text" id="groupName" required placeholder="例如：订单管理">
+          </div>
+
+          <div class="form-group">
+            <label>分组描述</label>
+            <textarea id="groupDescription" rows="3" placeholder="简要描述该分组的用途"></textarea>
+          </div>
+
+          <div class="form-group">
+            <label>排序序号</label>
+            <input type="number" id="groupOrder" value="1" min="1" placeholder="数字越小越靠前">
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn" onclick="closeGroupModal()">取消</button>
+        <button type="button" class="btn btn-primary" onclick="saveGroup()">💾 保存</button>
       </div>
     </div>
   </div>
@@ -1787,6 +1861,175 @@
       }
     }
 
+    // ========== 分组管理功能 ==========
+
+    // 打开分组管理 Modal
+    async function openGroupManagementModal() {
+      try {
+        await loadGroupsList();
+        document.getElementById('groupManagementModal').classList.add('active');
+      } catch (error) {
+        alert('❌ 加载分组列表失败: ' + error.message);
+      }
+    }
+
+    // 关闭分组管理 Modal
+    function closeGroupManagementModal() {
+      document.getElementById('groupManagementModal').classList.remove('active');
+    }
+
+    // 加载分组列表
+    async function loadGroupsList() {
+      try {
+        const response = await fetch(`${API_BASE}/admin/groups`);
+        const result = await response.json();
+
+        if (!result.success) {
+          throw new Error(result.message);
+        }
+
+        groups = result.data || [];
+        renderGroupTable();
+      } catch (error) {
+        console.error('加载分组列表失败:', error);
+        throw error;
+      }
+    }
+
+    // 渲染分组表格
+    function renderGroupTable() {
+      const tbody = document.getElementById('groupTableBody');
+
+      if (!groups || groups.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #999;">暂无分组</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = groups.map(group => `
+        <tr>
+          <td>${group.name}</td>
+          <td>${group.description || '-'}</td>
+          <td>${group.order || '-'}</td>
+          <td>
+            <button class="btn btn-sm" onclick="openEditGroupModal('${group.id}')">✏️ 编辑</button>
+            <button class="btn btn-sm btn-danger" onclick="deleteGroup('${group.id}')">🗑️ 删除</button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    // 打开添加分组 Modal
+    function openAddGroupModal() {
+      document.getElementById('groupModalTitle').textContent = '添加新分组';
+      document.getElementById('groupId').value = '';
+      document.getElementById('groupName').value = '';
+      document.getElementById('groupDescription').value = '';
+      document.getElementById('groupOrder').value = (groups.length + 1).toString();
+      document.getElementById('groupModal').classList.add('active');
+    }
+
+    // 打开编辑分组 Modal
+    function openEditGroupModal(groupId) {
+      const group = groups.find(g => g.id === groupId);
+      if (!group) {
+        alert('❌ 分组不存在');
+        return;
+      }
+
+      document.getElementById('groupModalTitle').textContent = '编辑分组';
+      document.getElementById('groupId').value = group.id;
+      document.getElementById('groupName').value = group.name;
+      document.getElementById('groupDescription').value = group.description || '';
+      document.getElementById('groupOrder').value = group.order || 1;
+      document.getElementById('groupModal').classList.add('active');
+    }
+
+    // 关闭分组编辑 Modal
+    function closeGroupModal() {
+      document.getElementById('groupModal').classList.remove('active');
+    }
+
+    // 保存分组
+    async function saveGroup() {
+      const groupId = document.getElementById('groupId').value;
+      const name = document.getElementById('groupName').value.trim();
+      const description = document.getElementById('groupDescription').value.trim();
+      const order = parseInt(document.getElementById('groupOrder').value) || 1;
+
+      if (!name) {
+        alert('⚠️ 请输入分组名称');
+        return;
+      }
+
+      try {
+        const url = groupId
+          ? `${API_BASE}/admin/groups/${groupId}`
+          : `${API_BASE}/admin/groups`;
+
+        const method = groupId ? 'PUT' : 'POST';
+
+        const response = await fetch(url, {
+          method: method,
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ name, description, order })
+        });
+
+        const result = await response.json();
+
+        if (!result.success) {
+          throw new Error(result.message);
+        }
+
+        alert(`✅ 分组${groupId ? '更新' : '创建'}成功！`);
+        closeGroupModal();
+        await loadGroupsList();
+        await loadMetadata(); // 重新加载元数据，更新统计卡片
+      } catch (error) {
+        alert(`❌ 保存失败: ${error.message}`);
+      }
+    }
+
+    // 删除分组
+    async function deleteGroup(groupId) {
+      const group = groups.find(g => g.id === groupId);
+      if (!group) {
+        alert('❌ 分组不存在');
+        return;
+      }
+
+      // 检查是否有API使用此分组
+      const apisInGroup = allApis.filter(api => api.groupId === groupId);
+      if (apisInGroup.length > 0) {
+        if (!confirm(`⚠️ 该分组下有 ${apisInGroup.length} 个API，删除后这些API将变为无分组状态。\n确定要删除吗？`)) {
+          return;
+        }
+      } else {
+        if (!confirm(`确定要删除分组 "${group.name}" 吗？`)) {
+          return;
+        }
+      }
+
+      try {
+        const response = await fetch(`${API_BASE}/admin/groups/${groupId}`, {
+          method: 'DELETE'
+        });
+
+        const result = await response.json();
+
+        if (!result.success) {
+          throw new Error(result.message);
+        }
+
+        alert('✅ 分组删除成功！');
+        await loadGroupsList();
+        await loadMetadata(); // 重新加载元数据
+      } catch (error) {
+        alert('❌ 删除失败: ' + error.message);
+      }
+    }
+
     // 点击 Modal 外部关闭
     document.getElementById('datasourceManagementModal').addEventListener('click', (e) => {
       if (e.target.id === 'datasourceManagementModal') {
@@ -1797,6 +2040,18 @@
     document.getElementById('datasourceModal').addEventListener('click', (e) => {
       if (e.target.id === 'datasourceModal') {
         closeDatasourceModal();
+      }
+    });
+
+    document.getElementById('groupManagementModal').addEventListener('click', (e) => {
+      if (e.target.id === 'groupManagementModal') {
+        closeGroupManagementModal();
+      }
+    });
+
+    document.getElementById('groupModal').addEventListener('click', (e) => {
+      if (e.target.id === 'groupModal') {
+        closeGroupModal();
       }
     });
   </script>

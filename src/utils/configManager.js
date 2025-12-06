@@ -12,6 +12,7 @@ import datasourceManager from './datasourceManager.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const CONFIG_PATH = path.join(__dirname, '../../api_config (1).json');
+const GROUPS_PATH = path.join(__dirname, '../../groups.json');
 
 class ConfigManager {
   /**
@@ -350,14 +351,92 @@ class ConfigManager {
   }
 
   /**
-   * 获取分组列表
+   * 获取分组列表（从 groups.json 读取）
    */
-  getGroups() {
-    return [
-      { id: 'yTMWJ8W3', name: 'gocrm' },
-      { id: 'H1BFe93S', name: '采购IW' },
-      { id: 'j2pRZs0O', name: '跟单IW' }
-    ];
+  async getGroups() {
+    try {
+      const content = await fs.readFile(GROUPS_PATH, 'utf-8');
+      const groups = JSON.parse(content);
+      return groups.sort((a, b) => (a.order || 0) - (b.order || 0));
+    } catch (error) {
+      console.error('读取分组配置失败:', error);
+      // 返回默认分组
+      return [
+        { id: 'yTMWJ8W3', name: 'gocrm', description: 'gocrm 相关API接口', order: 1 },
+        { id: 'H1BFe93S', name: '采购IW', description: '采购IW 相关API接口', order: 2 },
+        { id: 'j2pRZs0O', name: '跟单IW', description: '跟单IW 相关API接口', order: 3 }
+      ];
+    }
+  }
+
+  /**
+   * 保存分组列表
+   */
+  async saveGroups(groups) {
+    try {
+      await fs.writeFile(GROUPS_PATH, JSON.stringify(groups, null, 2), 'utf-8');
+      return true;
+    } catch (error) {
+      console.error('保存分组配置失败:', error);
+      throw new Error('保存分组配置失败');
+    }
+  }
+
+  /**
+   * 添加新分组
+   */
+  async addGroup(group) {
+    const groups = await this.getGroups();
+
+    // 生成唯一ID
+    const newId = this._generateId();
+    const newGroup = {
+      id: newId,
+      name: group.name,
+      description: group.description || '',
+      order: group.order || groups.length + 1
+    };
+
+    groups.push(newGroup);
+    await this.saveGroups(groups);
+
+    return newGroup;
+  }
+
+  /**
+   * 更新分组
+   */
+  async updateGroup(groupId, updates) {
+    const groups = await this.getGroups();
+    const index = groups.findIndex(g => g.id === groupId);
+
+    if (index === -1) {
+      throw new Error('分组不存在');
+    }
+
+    groups[index] = {
+      ...groups[index],
+      ...updates,
+      id: groupId // 确保ID不被修改
+    };
+
+    await this.saveGroups(groups);
+    return groups[index];
+  }
+
+  /**
+   * 删除分组
+   */
+  async deleteGroup(groupId) {
+    const groups = await this.getGroups();
+    const filteredGroups = groups.filter(g => g.id !== groupId);
+
+    if (filteredGroups.length === groups.length) {
+      throw new Error('分组不存在');
+    }
+
+    await this.saveGroups(filteredGroups);
+    return true;
   }
 
   /**
