@@ -20,7 +20,23 @@ echo ""
 
 cd /opt/kewen-sql-api
 
-# 步骤1: 拉取最新代码（使用镜像加速）
+# 步骤1: 备份配置文件
+echo -e "${YELLOW}💾 备份配置文件...${NC}"
+
+BACKUP_DIR="/tmp/kewen-sql-api-backup-$(date +%s)"
+mkdir -p "$BACKUP_DIR"
+
+CONFIG_FILES=("api_config (1).json" "datasources.json" "groups.json")
+for file in "${CONFIG_FILES[@]}"; do
+    if [ -f "$file" ]; then
+        cp "$file" "$BACKUP_DIR/"
+        echo "✅ 已备份: $file"
+    fi
+done
+
+echo ""
+
+# 步骤2: 拉取最新代码（使用镜像加速）
 echo -e "${YELLOW}📥 拉取最新代码...${NC}"
 git config --global url."https://ghproxy.com/https://github.com/".insteadOf "https://github.com/"
 
@@ -48,13 +64,28 @@ git config --global --unset url."https://ghproxy.com/https://github.com/".instea
 
 echo ""
 
-# 步骤2: 重启容器
+# 步骤2.5: 恢复配置文件
+echo -e "${YELLOW}🔄 恢复配置文件...${NC}"
+
+for file in "${CONFIG_FILES[@]}"; do
+    if [ -f "$BACKUP_DIR/$file" ]; then
+        cp "$BACKUP_DIR/$file" "$file"
+        echo "✅ 已恢复: $file"
+    fi
+done
+
+rm -rf "$BACKUP_DIR"
+echo -e "${GREEN}✅ 配置文件已恢复${NC}"
+
+echo ""
+
+# 步骤3: 重启容器
 echo -e "${YELLOW}🔄 重启容器...${NC}"
 podman restart kewen-sql-api
 
 echo ""
 
-# 步骤3: 查看日志
+# 步骤4: 查看日志
 echo -e "${YELLOW}📝 查看最新日志 (最后50行):${NC}"
 sleep 2
 podman logs kewen-sql-api --tail 50

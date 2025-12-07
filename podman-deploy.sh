@@ -30,8 +30,26 @@ cd "$DEPLOY_DIR"
 echo -e "${GREEN}📁 当前目录: $(pwd)${NC}"
 echo ""
 
-# ========== 步骤1: 拉取最新代码 ==========
-echo -e "${YELLOW}📥 步骤1: 拉取最新代码...${NC}"
+# ========== 步骤1: 备份配置文件 ==========
+echo -e "${YELLOW}💾 步骤1: 备份配置文件...${NC}"
+
+# 创建临时备份目录
+BACKUP_DIR="/tmp/kewen-sql-api-backup-$(date +%s)"
+mkdir -p "$BACKUP_DIR"
+
+# 备份用户数据文件（如果存在）
+CONFIG_FILES=("api_config (1).json" "datasources.json" "groups.json")
+for file in "${CONFIG_FILES[@]}"; do
+    if [ -f "$file" ]; then
+        cp "$file" "$BACKUP_DIR/"
+        echo "✅ 已备份: $file"
+    fi
+done
+
+echo ""
+
+# ========== 步骤2: 拉取最新代码 ==========
+echo -e "${YELLOW}📥 步骤2: 拉取最新代码...${NC}"
 
 # 配置 GitHub 代理加速
 git config --global url."https://ghproxy.com/https://github.com/".insteadOf "https://github.com/"
@@ -62,8 +80,25 @@ git config --global --unset url."https://ghproxy.com/https://github.com/".instea
 
 echo ""
 
-# ========== 步骤2: 检查并确保配置文件存在 ==========
-echo -e "${YELLOW}📋 步骤2: 检查配置文件...${NC}"
+# ========== 步骤2.5: 恢复配置文件 ==========
+echo -e "${YELLOW}🔄 恢复配置文件...${NC}"
+
+# 恢复备份的配置文件
+for file in "${CONFIG_FILES[@]}"; do
+    if [ -f "$BACKUP_DIR/$file" ]; then
+        cp "$BACKUP_DIR/$file" "$file"
+        echo "✅ 已恢复: $file"
+    fi
+done
+
+# 清理备份目录
+rm -rf "$BACKUP_DIR"
+echo -e "${GREEN}✅ 配置文件已恢复，备份已清理${NC}"
+
+echo ""
+
+# ========== 步骤3: 检查并确保配置文件存在 ==========
+echo -e "${YELLOW}📋 步骤3: 检查配置文件...${NC}"
 
 # 检查 .env 文件
 if [ ! -f ".env" ]; then
@@ -127,8 +162,8 @@ echo -e "${GREEN}✅ logs 目录已就绪${NC}"
 
 echo ""
 
-# ========== 步骤3: 构建镜像 ==========
-echo -e "${YELLOW}🔨 步骤3: 构建 Docker 镜像...${NC}"
+# ========== 步骤4: 构建镜像 ==========
+echo -e "${YELLOW}🔨 步骤4: 构建 Docker 镜像...${NC}"
 
 if command -v podman &> /dev/null; then
     # 使用 podman build
@@ -141,8 +176,8 @@ fi
 
 echo ""
 
-# ========== 步骤4: 停止并删除旧容器 ==========
-echo -e "${YELLOW}🛑 步骤4: 停止旧容器...${NC}"
+# ========== 步骤5: 停止并删除旧容器 ==========
+echo -e "${YELLOW}🛑 步骤5: 停止旧容器...${NC}"
 
 if podman ps -a | grep -q kewen-sql-api; then
     echo "停止容器 kewen-sql-api..."
@@ -156,8 +191,8 @@ fi
 
 echo ""
 
-# ========== 步骤5: 启动新容器 ==========
-echo -e "${YELLOW}🚀 步骤5: 启动新容器...${NC}"
+# ========== 步骤6: 启动新容器 ==========
+echo -e "${YELLOW}🚀 步骤6: 启动新容器...${NC}"
 
 # 从 .env 读取端口（如果没有则使用默认3000）
 PORT=${PORT:-3000}
@@ -183,12 +218,12 @@ fi
 
 echo ""
 
-# ========== 步骤6: 等待服务就绪 ==========
-echo -e "${YELLOW}⏳ 步骤6: 等待服务启动...${NC}"
+# ========== 步骤7: 等待服务就绪 ==========
+echo -e "${YELLOW}⏳ 步骤7: 等待服务启动...${NC}"
 sleep 5
 
-# ========== 步骤7: 验证服务 ==========
-echo -e "${YELLOW}🔍 步骤7: 验证服务状态...${NC}"
+# ========== 步骤8: 验证服务 ==========
+echo -e "${YELLOW}🔍 步骤8: 验证服务状态...${NC}"
 echo ""
 
 # 查看容器状态

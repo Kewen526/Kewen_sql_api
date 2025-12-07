@@ -70,6 +70,8 @@ async function executeTransaction(datasourceId, sqlList, requestParams) {
     console.error(`❌ 事务执行失败 [${datasourceId}]:`, error.message);
     throw error;
   } finally {
+    // ✅ 释放连接前清理会话变量，防止连接池复用时的变量污染
+    await cleanupSessionVariables(connection);
     connection.release();
   }
 }
@@ -105,6 +107,8 @@ async function executeNonTransaction(datasourceId, sqlList, requestParams) {
     console.error(`❌ SQL执行失败 [${datasourceId}]:`, error.message);
     throw error;
   } finally {
+    // ✅ 释放连接前清理会话变量，防止连接池复用时的变量污染
+    await cleanupSessionVariables(connection);
     connection.release();  // ✅ 最后释放连接
   }
 }
@@ -135,4 +139,39 @@ function formatResult(rows) {
 
   // 其他情况，原样返回
   return rows;
+}
+
+/**
+ * 清理会话变量
+ *
+ * 防止连接池复用时的会话变量污染问题：
+ * 当连接被释放回连接池后，MySQL的会话变量（@variable）不会被清除
+ * 下一个请求复用该连接时，如果SQL中的 SELECT...INTO 没有找到记录
+ * 变量不会被赋新值，会保留上一次请求的旧值，导致数据错误
+ *
+ * 解决方案：在释放连接前执行 RESET CONNECTION（MySQL 5.7.3+）
+ * 该命令会重置会话状态，包括：
+ * - 清除所有用户变量（@variable）
+ * - 清除临时表
+ * - 重置会话变量为默认值
+ * - 清除 PREPARE 语句
+ *
+ * @param {Connection} connection - MySQL连接对象
+ */
+async function cleanupSessionVariables(connection) {
+  try {
+    // 使用 RESET CONNECTION 重置会话状态（MySQL 5.7.3+）
+    // 注意：不要使用 query，必须使用 resetConnection() 方法
+    // 因为 mysql2 库对此做了特殊处理
+    if (typeof connection.resetConnection === 'function') {
+      await connection.resetConnection();
+    } else {
+      // 降级方案：手动清理（适用于旧版本MySQL或不支持的客户端）
+      // 注意：这只是尽力而为，无法完全清理所有会话状态
+      console.warn('⚠️  连接不支持 resetConnection()，跳过会话清理');
+    }
+  } catch (error) {
+    // 清理失败不应该影响主流程，只记录警告
+    console.warn('⚠️  会话变量清理失败:', error.message);
+  }
 }

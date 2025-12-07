@@ -36,3 +36,8 @@ pids/
 tmp/
 temp/
 *.tmp
+
+# 配置文件（包含用户数据，不应提交到仓库）
+api_config (1).json
+datasources.json
+groups.json
