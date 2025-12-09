@@ -124,21 +124,15 @@ if [ ! -f "groups.json" ]; then
 [
   {
     "id": "yTMWJ8W3",
-    "name": "gocrm",
-    "description": "gocrm 相关API接口",
+    "name": "示例分组",
+    "description": "这是一个示例分组",
     "order": 1
   },
   {
-    "id": "H1BFe93S",
-    "name": "采购IW",
-    "description": "采购IW 相关API接口",
+    "id": "group_data",
+    "name": "数据写入",
+    "description": "数据写入相关API",
     "order": 2
-  },
-  {
-    "id": "j2pRZs0O",
-    "name": "跟单IW",
-    "description": "跟单IW 相关API接口",
-    "order": 3
   }
 ]
 EOF

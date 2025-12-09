@@ -360,12 +360,19 @@ class ConfigManager {
       return groups.sort((a, b) => (a.order || 0) - (b.order || 0));
     } catch (error) {
       console.error('读取分组配置失败:', error);
-      // 返回默认分组
-      return [
-        { id: 'yTMWJ8W3', name: 'gocrm', description: 'gocrm 相关API接口', order: 1 },
-        { id: 'H1BFe93S', name: '采购IW', description: '采购IW 相关API接口', order: 2 },
-        { id: 'j2pRZs0O', name: '跟单IW', description: '跟单IW 相关API接口', order: 3 }
+      // 如果文件不存在，创建默认分组并保存
+      const defaultGroups = [
+        { id: 'yTMWJ8W3', name: '示例分组', description: '这是一个示例分组', order: 1 },
+        { id: 'group_data', name: '数据写入', description: '数据写入相关API', order: 2 }
       ];
+      // 尝试创建默认配置文件
+      try {
+        await fs.writeFile(GROUPS_PATH, JSON.stringify(defaultGroups, null, 2), 'utf-8');
+        console.log('✅ 已创建默认 groups.json');
+      } catch (writeError) {
+        console.error('创建默认分组配置失败:', writeError);
+      }
+      return defaultGroups;
     }
   }
 
