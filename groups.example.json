@@ -4,5 +4,11 @@
     "name": "示例分组",
     "description": "这是一个示例分组",
     "order": 1
+  },
+  {
+    "id": "group_data",
+    "name": "数据写入",
+    "description": "数据写入相关API",
+    "order": 2
   }
 ]
