@@ -437,11 +437,15 @@ export function registerAdminRoutes(fastify) {
         const newDatasource = await datasourceManager.createDatasource(request.body);
 
         // 动态添加到连接池
+        let poolLoaded = false;
+        let poolErrorMsg = null;
         try {
           await poolManager.addDatasourcePool(newDatasource);
+          poolLoaded = true;
+          console.log(`✅ 新数据源 ${newDatasource.id} 已添加到连接池`);
         } catch (poolError) {
-          console.error('添加到连接池失败:', poolError.message);
-          // 即使添加到连接池失败，数据源配置也已保存
+          poolErrorMsg = poolError.message;
+          console.error('❌ 添加到连接池失败:', poolError.message);
         }
 
         // 不返回密码
@@ -449,7 +453,10 @@ export function registerAdminRoutes(fastify) {
 
         return {
           success: true,
-          message: '数据源创建成功',
+          message: poolLoaded
+            ? '数据源创建成功，已添加到连接池'
+            : '数据源配置已保存，但连接池加载失败: ' + poolErrorMsg,
+          poolLoaded: poolLoaded,
           data: safeData
         };
       } catch (error) {
@@ -475,10 +482,15 @@ export function registerAdminRoutes(fastify) {
         );
 
         // 重新加载连接池
+        let poolLoaded = false;
+        let poolErrorMsg = null;
         try {
           await poolManager.reloadDatasourcePool(request.params.id, updatedDatasource);
+          poolLoaded = true;
+          console.log(`✅ 数据源 ${request.params.id} 连接池重新加载成功`);
         } catch (poolError) {
-          console.error('重新加载连接池失败:', poolError.message);
+          poolErrorMsg = poolError.message;
+          console.error('❌ 重新加载连接池失败:', poolError.message);
         }
 
         // 不返回密码
@@ -486,7 +498,10 @@ export function registerAdminRoutes(fastify) {
 
         return {
           success: true,
-          message: '数据源更新成功',
+          message: poolLoaded
+            ? '数据源更新成功，连接池已重新加载'
+            : '数据源配置已保存，但连接池加载失败: ' + poolErrorMsg,
+          poolLoaded: poolLoaded,
           data: safeData
         };
       } catch (error) {
