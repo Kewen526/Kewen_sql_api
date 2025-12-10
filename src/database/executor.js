@@ -114,6 +114,46 @@ async function executeNonTransaction(datasourceId, sqlList, requestParams) {
 }
 
 /**
+ * 递归转换对象中的 Buffer 为字符串
+ *
+ * 问题背景：
+ * MySQL 用户变量（@v_xxx）在通过 SELECT...INTO 赋值后
+ * 类型可能变成 BLOB/BINARY，导致 mysql2 驱动返回 Buffer 对象
+ * 而不是字符串。这个问题是间歇性的，取决于 MySQL 的类型推断。
+ *
+ * @param {any} data - 需要处理的数据
+ * @returns {any} - 转换后的数据
+ */
+function convertBuffers(data) {
+  // 处理 null/undefined
+  if (data == null) {
+    return data;
+  }
+
+  // 处理 Buffer 类型 - 转换为 UTF-8 字符串
+  if (Buffer.isBuffer(data)) {
+    return data.toString('utf8');
+  }
+
+  // 处理数组 - 递归处理每个元素
+  if (Array.isArray(data)) {
+    return data.map(item => convertBuffers(item));
+  }
+
+  // 处理对象 - 递归处理每个属性
+  if (typeof data === 'object') {
+    const result = {};
+    for (const key of Object.keys(data)) {
+      result[key] = convertBuffers(data[key]);
+    }
+    return result;
+  }
+
+  // 其他类型（string, number, boolean）直接返回
+  return data;
+}
+
+/**
  * 格式化结果
  * 兼容 DBAPI 的返回格式
  */
@@ -129,16 +169,19 @@ function formatResult(rows) {
 
   // 如果是 SELECT，返回结果集
   if (Array.isArray(rows)) {
+    // ✅ 转换 Buffer 为字符串（解决 MySQL 用户变量返回 BINARY 的问题）
+    const converted = convertBuffers(rows);
+
     // 单行结果，直接返回对象
-    if (rows.length === 1) {
-      return rows[0];
+    if (converted.length === 1) {
+      return converted[0];
     }
     // 多行结果，返回数组
-    return rows;
+    return converted;
   }
 
-  // 其他情况，原样返回
-  return rows;
+  // 其他情况，转换后返回
+  return convertBuffers(rows);
 }
 
 /**
