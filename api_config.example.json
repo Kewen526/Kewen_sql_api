@@ -1,1 +1,184 @@
-[]
+{
+  "api": [
+    {
+      "id": "SYS_API_001",
+      "name": "获取用户列表",
+      "path": "/api/system/users/list",
+      "method": "POST",
+      "note": "查询租户下的所有用户列表",
+      "contentType": "application/json",
+      "groupId": "SYSTEM_USER_MGMT",
+      "params": "[{\"name\":\"tenant_id\",\"type\":\"string\",\"required\":true}]",
+      "task": "[{\"datasourceId\":\"PLATFORM\",\"sqlList\":[{\"sql\":\"SELECT id,email,role,status,created_at FROM users WHERE tenant_id=#{tenant_id} LIMIT 100\"}]}]",
+      "status": 1
+    },
+    {
+      "id": "SYS_API_002",
+      "name": "获取用户详情",
+      "path": "/api/system/users/detail",
+      "method": "POST",
+      "note": "根据用户ID获取详情",
+      "contentType": "application/json",
+      "groupId": "SYSTEM_USER_MGMT",
+      "params": "[{\"name\":\"user_id\",\"type\":\"string\",\"required\":true},{\"name\":\"tenant_id\",\"type\":\"string\",\"required\":true}]",
+      "task": "[{\"datasourceId\":\"PLATFORM\",\"sqlList\":[{\"sql\":\"SELECT * FROM users WHERE id=#{user_id} AND tenant_id=#{tenant_id}\"}]}]",
+      "status": 1
+    },
+    {
+      "id": "SYS_API_003",
+      "name": "检查邮箱是否存在",
+      "path": "/api/system/users/check_email",
+      "method": "POST",
+      "note": "检查邮箱是否已注册",
+      "contentType": "application/json",
+      "groupId": "SYSTEM_USER_MGMT",
+      "params": "[{\"name\":\"email\",\"type\":\"string\",\"required\":true}]",
+      "task": "[{\"datasourceId\":\"PLATFORM\",\"sqlList\":[{\"sql\":\"SELECT COUNT(*) as count FROM users WHERE email=#{email}\"}]}]",
+      "status": 1
+    },
+    {
+      "id": "SYS_API_004",
+      "name": "更新用户状态",
+      "path": "/api/system/users/update_status",
+      "method": "POST",
+      "note": "启用或禁用用户",
+      "contentType": "application/json",
+      "groupId": "SYSTEM_USER_MGMT",
+      "params": "[{\"name\":\"user_id\",\"type\":\"string\",\"required\":true},{\"name\":\"tenant_id\",\"type\":\"string\",\"required\":true},{\"name\":\"status\",\"type\":\"number\",\"required\":true}]",
+      "task": "[{\"datasourceId\":\"PLATFORM\",\"sqlList\":[{\"sql\":\"UPDATE users SET status=#{status} WHERE id=#{user_id} AND tenant_id=#{tenant_id}\"}]}]",
+      "status": 1
+    },
+    {
+      "id": "SYS_API_005",
+      "name": "更新用户角色",
+      "path": "/api/system/users/update_role",
+      "method": "POST",
+      "note": "修改用户角色",
+      "contentType": "application/json",
+      "groupId": "SYSTEM_USER_MGMT",
+      "params": "[{\"name\":\"user_id\",\"type\":\"string\",\"required\":true},{\"name\":\"tenant_id\",\"type\":\"string\",\"required\":true},{\"name\":\"role\",\"type\":\"string\",\"required\":true}]",
+      "task": "[{\"datasourceId\":\"PLATFORM\",\"sqlList\":[{\"sql\":\"UPDATE users SET role=#{role} WHERE id=#{user_id} AND tenant_id=#{tenant_id}\"}]}]",
+      "status": 1
+    },
+    {
+      "id": "SYS_API_006",
+      "name": "删除用户",
+      "path": "/api/system/users/delete",
+      "method": "POST",
+      "note": "删除用户账号",
+      "contentType": "application/json",
+      "groupId": "SYSTEM_USER_MGMT",
+      "params": "[{\"name\":\"user_id\",\"type\":\"string\",\"required\":true},{\"name\":\"tenant_id\",\"type\":\"string\",\"required\":true}]",
+      "task": "[{\"datasourceId\":\"PLATFORM\",\"sqlList\":[{\"sql\":\"UPDATE users SET status=0 WHERE id=#{user_id} AND tenant_id=#{tenant_id}\"}]}]",
+      "status": 1
+    },
+    {
+      "id": "SYS_API_007",
+      "name": "获取租户信息",
+      "path": "/api/system/tenants/detail",
+      "method": "POST",
+      "note": "获取租户详情",
+      "contentType": "application/json",
+      "groupId": "SYSTEM_USER_MGMT",
+      "params": "[{\"name\":\"tenant_id\",\"type\":\"string\",\"required\":true}]",
+      "task": "[{\"datasourceId\":\"PLATFORM\",\"sqlList\":[{\"sql\":\"SELECT * FROM tenants WHERE id=#{tenant_id}\"}]}]",
+      "status": 1
+    },
+    {
+      "id": "SYS_API_008",
+      "name": "用户统计",
+      "path": "/api/system/users/stats",
+      "method": "POST",
+      "note": "获取用户统计",
+      "contentType": "application/json",
+      "groupId": "SYSTEM_USER_MGMT",
+      "params": "[{\"name\":\"tenant_id\",\"type\":\"string\",\"required\":true}]",
+      "task": "[{\"datasourceId\":\"PLATFORM\",\"sqlList\":[{\"sql\":\"SELECT COUNT(*) as total FROM users WHERE tenant_id=#{tenant_id}\"}]}]",
+      "status": 1
+    },
+    {
+      "id": "SYS_API_009",
+      "name": "搜索用户",
+      "path": "/api/system/users/search",
+      "method": "POST",
+      "note": "搜索用户",
+      "contentType": "application/json",
+      "groupId": "SYSTEM_USER_MGMT",
+      "params": "[{\"name\":\"tenant_id\",\"type\":\"string\",\"required\":true},{\"name\":\"keyword\",\"type\":\"string\",\"required\":false}]",
+      "task": "[{\"datasourceId\":\"PLATFORM\",\"sqlList\":[{\"sql\":\"SELECT * FROM users WHERE tenant_id=#{tenant_id} AND email LIKE CONCAT('%',#{keyword},'%') LIMIT 50\"}]}]",
+      "status": 1
+    },
+    {
+      "id": "SYS_API_010",
+      "name": "验证用户权限",
+      "path": "/api/system/users/verify_permission",
+      "method": "POST",
+      "note": "验证权限",
+      "contentType": "application/json",
+      "groupId": "SYSTEM_USER_MGMT",
+      "params": "[{\"name\":\"user_id\",\"type\":\"string\",\"required\":true},{\"name\":\"tenant_id\",\"type\":\"string\",\"required\":true}]",
+      "task": "[{\"datasourceId\":\"PLATFORM\",\"sqlList\":[{\"sql\":\"SELECT id,role,status FROM users WHERE id=#{user_id} AND tenant_id=#{tenant_id}\"}]}]",
+      "status": 1
+    },
+    {
+      "id": "AUTH_API_001",
+      "name": "用户注册",
+      "path": "/api/auth/register",
+      "method": "POST",
+      "note": "新用户注册，创建账号和租户",
+      "contentType": "application/json",
+      "groupId": "AUTH_MGMT",
+      "params": "[{\"name\":\"company\",\"type\":\"string\",\"required\":true,\"description\":\"公司名称\"},{\"name\":\"email\",\"type\":\"string\",\"required\":true,\"description\":\"邮箱\"},{\"name\":\"password\",\"type\":\"string\",\"required\":true,\"description\":\"密码\"}]",
+      "task": "[]",
+      "status": 1
+    },
+    {
+      "id": "AUTH_API_002",
+      "name": "用户登录",
+      "path": "/api/auth/login",
+      "method": "POST",
+      "note": "用户登录获取Token",
+      "contentType": "application/json",
+      "groupId": "AUTH_MGMT",
+      "params": "[{\"name\":\"email\",\"type\":\"string\",\"required\":true,\"description\":\"邮箱\"},{\"name\":\"password\",\"type\":\"string\",\"required\":true,\"description\":\"密码\"}]",
+      "task": "[]",
+      "status": 1
+    },
+    {
+      "id": "AUTH_API_003",
+      "name": "获取当前用户信息",
+      "path": "/api/auth/me",
+      "method": "GET",
+      "note": "获取当前登录用户信息（需要Token）",
+      "contentType": "application/json",
+      "groupId": "AUTH_MGMT",
+      "params": "[]",
+      "task": "[]",
+      "status": 1
+    },
+    {
+      "id": "AUTH_API_004",
+      "name": "刷新Token",
+      "path": "/api/auth/refresh",
+      "method": "POST",
+      "note": "刷新访问Token",
+      "contentType": "application/json",
+      "groupId": "AUTH_MGMT",
+      "params": "[{\"name\":\"token\",\"type\":\"string\",\"required\":true,\"description\":\"当前Token\"}]",
+      "task": "[]",
+      "status": 1
+    },
+    {
+      "id": "AUTH_API_005",
+      "name": "退出登录",
+      "path": "/api/auth/logout",
+      "method": "POST",
+      "note": "退出登录，销毁Token",
+      "contentType": "application/json",
+      "groupId": "AUTH_MGMT",
+      "params": "[]",
+      "task": "[]",
+      "status": 1
+    }
+  ]
+}
