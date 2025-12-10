@@ -1,1 +1,17 @@
-[]
+{
+  "datasources": [
+    {
+      "id": "PLATFORM",
+      "name": "jx_data_info",
+      "host": "8.146.210.145",
+      "port": 3306,
+      "user": "root",
+      "password": "YOUR_PASSWORD_HERE",
+      "database": "jx_data_info",
+      "poolMin": 2,
+      "poolMax": 10,
+      "createTime": "2024-01-01 00:00:00",
+      "updateTime": "2024-01-01 00:00:00"
+    }
+  ]
+}
