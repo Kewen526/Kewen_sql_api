@@ -144,13 +144,15 @@ class DatasourceManager {
     const existingDs = config.datasources[index];
 
     // 更新字段
+    // 注意：密码字段特殊处理 - 如果传入空字符串或undefined，保留原密码
     config.datasources[index] = {
       ...existingDs,
       name: dsData.name !== undefined ? dsData.name : existingDs.name,
       host: dsData.host !== undefined ? dsData.host : existingDs.host,
       port: dsData.port !== undefined ? dsData.port : existingDs.port,
       user: dsData.user !== undefined ? dsData.user : existingDs.user,
-      password: dsData.password !== undefined ? dsData.password : existingDs.password,
+      // 密码特殊处理：只有传入非空字符串时才更新
+      password: (dsData.password && dsData.password.trim() !== '') ? dsData.password : existingDs.password,
       database: dsData.database !== undefined ? dsData.database : existingDs.database,
       poolMin: dsData.poolMin !== undefined ? dsData.poolMin : existingDs.poolMin,
       poolMax: dsData.poolMax !== undefined ? dsData.poolMax : existingDs.poolMax,

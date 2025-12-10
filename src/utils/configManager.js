@@ -362,8 +362,10 @@ class ConfigManager {
       console.error('读取分组配置失败:', error);
       // 如果文件不存在，创建默认分组并保存
       const defaultGroups = [
-        { id: 'yTMWJ8W3', name: '示例分组', description: '这是一个示例分组', order: 1 },
-        { id: 'group_data', name: '数据写入', description: '数据写入相关API', order: 2 }
+        { id: 'SYSTEM_USER_MGMT', name: '系统用户管理', description: '系统用户相关API接口', order: 1 },
+        { id: 'AUTH_MGMT', name: '认证管理', description: '用户认证相关API接口', order: 2 },
+        { id: 'yTMWJ8W3', name: '示例分组', description: '这是一个示例分组', order: 3 },
+        { id: 'group_data', name: '数据写入', description: '数据写入相关API', order: 4 }
       ];
       // 尝试创建默认配置文件
       try {
