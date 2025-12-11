@@ -131,8 +131,21 @@ function convertBuffers(data) {
   }
 
   // 处理 Buffer 类型 - 转换为 UTF-8 字符串
+  // 使用多种检查方式确保能识别各种 Buffer 变体
   if (Buffer.isBuffer(data)) {
     return data.toString('utf8');
+  }
+
+  // 处理 Uint8Array（Buffer 的父类）
+  // mysql2 在某些情况下可能返回 Uint8Array 而不是 Buffer
+  if (data instanceof Uint8Array) {
+    return Buffer.from(data).toString('utf8');
+  }
+
+  // 处理已被 JSON 序列化的 Buffer 对象
+  // 格式: { type: 'Buffer', data: [byte1, byte2, ...] }
+  if (data && typeof data === 'object' && data.type === 'Buffer' && Array.isArray(data.data)) {
+    return Buffer.from(data.data).toString('utf8');
   }
 
   // 处理数组 - 递归处理每个元素

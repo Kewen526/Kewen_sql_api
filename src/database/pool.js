@@ -49,11 +49,22 @@ class DatabasePoolManager {
         timezone: '+08:00', // 东八区
 
         // 类型转换：修复用户变量返回Buffer的问题
-        // MySQL用户变量(@variable)在SELECT时可能被识别为BLOB类型
+        // MySQL用户变量(@variable)在SELECT时可能被识别为各种BLOB类型
         // 需要手动转换为字符串，否则会以Buffer形式返回
         typeCast: function(field, next) {
-          // BLOB 和 VAR_STRING 类型统一转为字符串
-          if (field.type === 'BLOB' || field.type === 'VAR_STRING') {
+          // 所有 BLOB 和字符串类型统一转为字符串
+          // MySQL 可能返回的二进制/字符串类型：
+          // - TINY_BLOB, MEDIUM_BLOB, LONG_BLOB, BLOB
+          // - VAR_STRING, STRING
+          const blobTypes = [
+            'BLOB',
+            'TINY_BLOB',
+            'MEDIUM_BLOB',
+            'LONG_BLOB',
+            'VAR_STRING',
+            'STRING'
+          ];
+          if (blobTypes.includes(field.type)) {
             return field.string();
           }
           // 其他类型使用默认转换
@@ -196,7 +207,16 @@ class DatabasePoolManager {
 
         // 类型转换：修复用户变量返回Buffer的问题
         typeCast: function(field, next) {
-          if (field.type === 'BLOB' || field.type === 'VAR_STRING') {
+          // 所有 BLOB 和字符串类型统一转为字符串
+          const blobTypes = [
+            'BLOB',
+            'TINY_BLOB',
+            'MEDIUM_BLOB',
+            'LONG_BLOB',
+            'VAR_STRING',
+            'STRING'
+          ];
+          if (blobTypes.includes(field.type)) {
             return field.string();
           }
           return next();
