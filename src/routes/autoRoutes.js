@@ -105,81 +105,87 @@ function determineHttpMethod(apiParams, contentType) {
  * 注册动态路由处理器
  */
 export async function registerAutoRoutes(fastify, configPath) {
-  // 注册一个通配符路由来捕获所有API请求（支持多级路径）
-  fastify.all('/*', {
+  // 动态API请求处理函数
+  const dynamicApiHandler = async (request, reply) => {
+    // 使用 request.url 获取完整路径，去掉查询参数
+    const requestPath = request.url.split('?')[0].substring(1); // 去掉开头的 /
+
+    // 排除系统路由和管理路由（这些由其他路由处理）
+    if (requestPath.startsWith('admin') || requestPath === 'health') {
+      return reply.code(404).send({
+        success: false,
+        error: 'NotFound',
+        message: `路径 "/${requestPath}" 不存在`
+      });
+    }
+
+    try {
+      // 动态查找API配置
+      const api = await findApiByPath(configPath, requestPath);
+
+      if (!api) {
+        return reply.code(404).send({
+          success: false,
+          error: 'NotFound',
+          message: `API路径 "/${requestPath}" 不存在或已禁用`
+        });
+      }
+
+      // 验证HTTP方法
+      const expectedMethod = determineHttpMethod(api.params, api.contentType);
+      if (request.method !== expectedMethod) {
+        return reply.code(405).send({
+          success: false,
+          error: 'MethodNotAllowed',
+          message: `API "${api.name}" 仅支持 ${expectedMethod} 方法`
+        });
+      }
+
+      // 合并所有参数
+      const requestParams = mergeParams(request);
+
+      // 参数验证
+      const validation = validateParams(api.params, requestParams);
+      if (!validation.valid) {
+        return reply.code(400).send({
+          error: 'ParameterValidationError',
+          message: '参数验证失败',
+          details: validation.errors
+        });
+      }
+
+      // 执行SQL任务
+      const result = await executeApiTask(api.task, requestParams);
+
+      // 返回结果
+      return reply.send({
+        success: true,
+        data: result
+      });
+
+    } catch (error) {
+      console.error(`❌ API执行失败 [/${requestPath}]:`, error.message);
+
+      return reply.code(500).send({
+        success: false,
+        error: error.name || 'InternalServerError',
+        message: error.message
+      });
+    }
+  };
+
+  const routeConfig = {
     schema: {
       summary: '动态API路由处理器',
       description: '根据配置动态执行API请求',
       tags: ['API']
     },
-    handler: async (request, reply) => {
-      // 使用 request.url 获取完整路径，去掉查询参数
-      const requestPath = request.url.split('?')[0].substring(1); // 去掉开头的 /
+    handler: dynamicApiHandler
+  };
 
-      // 排除系统路由和管理路由（这些由其他路由处理）
-      if (requestPath.startsWith('admin') || requestPath === 'health') {
-        return reply.code(404).send({
-          success: false,
-          error: 'NotFound',
-          message: `路径 "/${requestPath}" 不存在`
-        });
-      }
-
-      try {
-        // 动态查找API配置
-        const api = await findApiByPath(configPath, requestPath);
-
-        if (!api) {
-          return reply.code(404).send({
-            success: false,
-            error: 'NotFound',
-            message: `API路径 "/${requestPath}" 不存在或已禁用`
-          });
-        }
-
-        // 验证HTTP方法
-        const expectedMethod = determineHttpMethod(api.params, api.contentType);
-        if (request.method !== expectedMethod) {
-          return reply.code(405).send({
-            success: false,
-            error: 'MethodNotAllowed',
-            message: `API "${api.name}" 仅支持 ${expectedMethod} 方法`
-          });
-        }
-
-        // 合并所有参数
-        const requestParams = mergeParams(request);
-
-        // 参数验证
-        const validation = validateParams(api.params, requestParams);
-        if (!validation.valid) {
-          return reply.code(400).send({
-            error: 'ParameterValidationError',
-            message: '参数验证失败',
-            details: validation.errors
-          });
-        }
-
-        // 执行SQL任务
-        const result = await executeApiTask(api.task, requestParams);
-
-        // 返回结果
-        return reply.send({
-          success: true,
-          data: result
-        });
-
-      } catch (error) {
-        console.error(`❌ API执行失败 [/${requestPath}]:`, error.message);
-
-        return reply.code(500).send({
-          success: false,
-          error: error.name || 'InternalServerError',
-          message: error.message
-        });
-      }
-    }
-  });
+  // 分别注册 GET 和 POST 路由（避免与 CORS 的 OPTIONS 路由冲突）
+  fastify.get('/*', routeConfig);
+  fastify.post('/*', routeConfig);
 
   // 初始加载配置并显示统计
   try {
