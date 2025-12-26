@@ -620,9 +620,16 @@ export function registerAdminRoutes(fastify) {
 
         const newSql = await configManager.addSqlToApi(apiId, sqlText);
 
+        // 🔥 自动触发路由热加载
+        try {
+          await routeReloader.reload();
+        } catch (reloadError) {
+          console.error('热加载失败:', reloadError);
+        }
+
         return {
           success: true,
-          message: 'SQL 添加成功',
+          message: 'SQL 添加成功，路由已自动更新！',
           sql: newSql
         };
       } catch (error) {
@@ -654,9 +661,16 @@ export function registerAdminRoutes(fastify) {
 
         const updatedSql = await configManager.updateSql(apiId, sqlId, sqlText);
 
+        // 🔥 自动触发路由热加载
+        try {
+          await routeReloader.reload();
+        } catch (reloadError) {
+          console.error('热加载失败:', reloadError);
+        }
+
         return {
           success: true,
-          message: 'SQL 更新成功',
+          message: 'SQL 更新成功，路由已自动更新！',
           sql: updatedSql
         };
       } catch (error) {
@@ -680,9 +694,16 @@ export function registerAdminRoutes(fastify) {
 
         const deletedSql = await configManager.deleteSql(apiId, sqlId);
 
+        // 🔥 自动触发路由热加载
+        try {
+          await routeReloader.reload();
+        } catch (reloadError) {
+          console.error('热加载失败:', reloadError);
+        }
+
         return {
           success: true,
-          message: 'SQL 删除成功',
+          message: 'SQL 删除成功，路由已自动更新！',
           sql: deletedSql
         };
       } catch (error) {

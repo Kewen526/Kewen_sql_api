@@ -105,15 +105,16 @@ function determineHttpMethod(apiParams, contentType) {
  * 注册动态路由处理器
  */
 export async function registerAutoRoutes(fastify, configPath) {
-  // 注册一个通配符路由来捕获所有API请求
-  fastify.all('/:apiPath', {
+  // 注册一个通配符路由来捕获所有API请求（支持多级路径）
+  fastify.all('/*', {
     schema: {
       summary: '动态API路由处理器',
       description: '根据配置动态执行API请求',
       tags: ['API']
     },
     handler: async (request, reply) => {
-      const requestPath = request.params.apiPath;
+      // 使用 request.url 获取完整路径，去掉查询参数
+      const requestPath = request.url.split('?')[0].substring(1); // 去掉开头的 /
 
       // 排除系统路由和管理路由（这些由其他路由处理）
       if (requestPath.startsWith('admin') || requestPath === 'health') {
