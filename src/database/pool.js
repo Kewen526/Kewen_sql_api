@@ -65,7 +65,10 @@ class DatabasePoolManager {
             'STRING'
           ];
           if (blobTypes.includes(field.type)) {
-            return field.string();
+            // 使用 buffer() 获取原始字节，再用 UTF-8 解码
+            // field.string() 可能使用错误的字符集（latin1），导致中文乱码
+            const buf = field.buffer();
+            return buf ? buf.toString('utf8') : null;
           }
           // 其他类型使用默认转换
           return next();
@@ -217,7 +220,9 @@ class DatabasePoolManager {
             'STRING'
           ];
           if (blobTypes.includes(field.type)) {
-            return field.string();
+            // 使用 buffer() 获取原始字节，再用 UTF-8 解码
+            const buf = field.buffer();
+            return buf ? buf.toString('utf8') : null;
           }
           return next();
         }
