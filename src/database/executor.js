@@ -40,10 +40,14 @@ export async function executeApiTask(taskConfig, requestParams) {
 
 /**
  * 执行事务（多个SQL在同一个事务中）
+ *
+ * 重要：所有SQL在同一个连接中执行，确保：
+ * 1. MySQL会话变量（@variable）在整个事务中有效
+ * 2. 事务的原子性（要么全部成功，要么全部回滚）
  */
 async function executeTransaction(datasourceId, sqlList, requestParams) {
-  const pool = poolManager.getPool(datasourceId);
-  const connection = await pool.getConnection();
+  // ✅ 使用 getInitializedConnection 获取已设置 utf8mb4 字符集的连接
+  const connection = await poolManager.getInitializedConnection(datasourceId);
 
   try {
     await connection.beginTransaction();
@@ -84,8 +88,9 @@ async function executeTransaction(datasourceId, sqlList, requestParams) {
  * 例如：SET @v_id := NULL; SELECT ... INTO @v_id; 必须在同一连接中
  */
 async function executeNonTransaction(datasourceId, sqlList, requestParams) {
-  const pool = poolManager.getPool(datasourceId);
-  const connection = await pool.getConnection();  // ✅ 获取一个连接
+  // ✅ 使用 getInitializedConnection 获取已设置 utf8mb4 字符集的连接
+  // 这确保中文数据不会因为服务器默认 latin1 字符集而乱码
+  const connection = await poolManager.getInitializedConnection(datasourceId);
 
   try {
     let lastResult = null;

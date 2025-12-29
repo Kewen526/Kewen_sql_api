@@ -106,6 +106,43 @@ class DatabasePoolManager {
   }
 
   /**
+   * 获取已初始化字符集的连接
+   *
+   * 关键修复：确保连接使用 UTF-8 编码
+   *
+   * 问题背景：
+   * MySQL服务器默认的 character_set_client/connection/results 可能是 latin1
+   * 即使在连接配置中设置了 charset: 'utf8mb4'，某些服务器也不会自动切换
+   * 这会导致中文数据通过 latin1 通道传输时产生乱码
+   *
+   * 解决方案：
+   * 在每次获取连接后，立即执行 SET NAMES utf8mb4 强制设置字符集
+   * 这与 JDBC 的 characterEncoding=UTF-8 参数效果相同
+   *
+   * @param {string} datasourceId - 数据源ID
+   * @returns {Promise<Connection>} 已初始化的连接
+   */
+  async getInitializedConnection(datasourceId) {
+    const pool = this.getPool(datasourceId);
+    const connection = await pool.getConnection();
+
+    try {
+      // 强制设置连接字符集为 utf8mb4
+      // 这会设置以下三个关键变量：
+      // - character_set_client = utf8mb4
+      // - character_set_connection = utf8mb4
+      // - character_set_results = utf8mb4
+      await connection.query('SET NAMES utf8mb4');
+
+      return connection;
+    } catch (error) {
+      // 如果初始化失败，释放连接并抛出错误
+      connection.release();
+      throw error;
+    }
+  }
+
+  /**
    * 执行SQL查询（单条）
    */
   async query(datasourceId, sql, params = []) {
