@@ -41,9 +41,21 @@ export async function executeApiTask(taskConfig, requestParams) {
 /**
  * 执行事务（多个SQL在同一个事务中）
  */
-async function executeTransaction(datasourceId, sqlList, requestParams) {
+async function executeTransaction(datasourceId, sqlList, requestParams, retryCount = 0) {
   const pool = poolManager.getPool(datasourceId);
-  const connection = await pool.getConnection();
+  let connection;
+
+  try {
+    connection = await pool.getConnection();
+  } catch (error) {
+    // 连接获取失败，重试
+    if (retryCount < 2) {
+      console.warn(`⚠️  获取连接失败，重试中... (${retryCount + 1}/2)`);
+      await new Promise(resolve => setTimeout(resolve, 100));
+      return executeTransaction(datasourceId, sqlList, requestParams, retryCount + 1);
+    }
+    throw error;
+  }
 
   try {
     await connection.beginTransaction();
@@ -66,13 +78,44 @@ async function executeTransaction(datasourceId, sqlList, requestParams) {
     // 返回最后一个SQL的结果
     return formatResult(lastResult);
   } catch (error) {
-    await connection.rollback();
+    // 尝试回滚
+    try {
+      await connection.rollback();
+    } catch (e) {
+      // 连接已断开，无法回滚
+    }
+
+    // ✅ 检测连接失效错误，自动重试（事务可以安全重试，因为未提交）
+    const isConnectionError =
+      error.code === 'ERR_STREAM_PREMATURE_CLOSE' ||
+      error.code === 'ECONNRESET' ||
+      error.code === 'PROTOCOL_CONNECTION_LOST' ||
+      error.message.includes('Premature close') ||
+      error.message.includes('Connection lost');
+
+    if (isConnectionError && retryCount < 2) {
+      console.warn(`⚠️  连接失效 [${datasourceId}]，重试事务... (${retryCount + 1}/2)`);
+      try {
+        connection.destroy();
+      } catch (e) {
+        // 忽略
+      }
+      await new Promise(resolve => setTimeout(resolve, 100));
+      return executeTransaction(datasourceId, sqlList, requestParams, retryCount + 1);
+    }
+
     console.error(`❌ 事务执行失败 [${datasourceId}]:`, error.message);
     throw error;
   } finally {
-    // ✅ 释放连接前清理会话变量，防止连接池复用时的变量污染
-    await cleanupSessionVariables(connection);
-    connection.release();
+    if (connection) {
+      // ✅ 释放连接前清理会话变量，防止连接池复用时的变量污染
+      await cleanupSessionVariables(connection);
+      try {
+        connection.release();
+      } catch (e) {
+        // 连接可能已被销毁
+      }
+    }
   }
 }
 
@@ -83,9 +126,21 @@ async function executeTransaction(datasourceId, sqlList, requestParams) {
  * 原因：MySQL会话变量（@variable）只在同一连接的同一会话中有效
  * 例如：SET @v_id := NULL; SELECT ... INTO @v_id; 必须在同一连接中
  */
-async function executeNonTransaction(datasourceId, sqlList, requestParams) {
+async function executeNonTransaction(datasourceId, sqlList, requestParams, retryCount = 0) {
   const pool = poolManager.getPool(datasourceId);
-  const connection = await pool.getConnection();  // ✅ 获取一个连接
+  let connection;
+
+  try {
+    connection = await pool.getConnection();  // ✅ 获取一个连接
+  } catch (error) {
+    // 连接获取失败，可能是连接池问题
+    if (retryCount < 2) {
+      console.warn(`⚠️  获取连接失败，重试中... (${retryCount + 1}/2)`);
+      await new Promise(resolve => setTimeout(resolve, 100));
+      return executeNonTransaction(datasourceId, sqlList, requestParams, retryCount + 1);
+    }
+    throw error;
+  }
 
   try {
     let lastResult = null;
@@ -104,12 +159,39 @@ async function executeNonTransaction(datasourceId, sqlList, requestParams) {
     // 返回最后一个SQL的结果
     return formatResult(lastResult);
   } catch (error) {
+    // ✅ 检测连接失效错误，自动重试
+    const isConnectionError =
+      error.code === 'ERR_STREAM_PREMATURE_CLOSE' ||
+      error.code === 'ECONNRESET' ||
+      error.code === 'PROTOCOL_CONNECTION_LOST' ||
+      error.message.includes('Premature close') ||
+      error.message.includes('Connection lost');
+
+    if (isConnectionError && retryCount < 2) {
+      console.warn(`⚠️  连接失效 [${datasourceId}]，重试中... (${retryCount + 1}/2)`);
+      // 销毁失效连接
+      try {
+        connection.destroy();
+      } catch (e) {
+        // 忽略销毁错误
+      }
+      // 等待一小段时间后重试
+      await new Promise(resolve => setTimeout(resolve, 100));
+      return executeNonTransaction(datasourceId, sqlList, requestParams, retryCount + 1);
+    }
+
     console.error(`❌ SQL执行失败 [${datasourceId}]:`, error.message);
     throw error;
   } finally {
-    // ✅ 释放连接前清理会话变量，防止连接池复用时的变量污染
-    await cleanupSessionVariables(connection);
-    connection.release();  // ✅ 最后释放连接
+    if (connection) {
+      // ✅ 释放连接前清理会话变量，防止连接池复用时的变量污染
+      await cleanupSessionVariables(connection);
+      try {
+        connection.release();  // ✅ 最后释放连接
+      } catch (e) {
+        // 连接可能已被销毁，忽略释放错误
+      }
+    }
   }
 }
 
