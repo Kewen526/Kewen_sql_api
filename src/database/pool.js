@@ -34,10 +34,19 @@ class DatabasePoolManager {
         queueLimit: 0, // 不限制队列，避免拒绝请求
         waitForConnections: true,
         enableKeepAlive: true,
-        keepAliveInitialDelay: 0,
+        keepAliveInitialDelay: 10000, // 10秒后开始发送keepalive包
 
         // 超时配置
         connectTimeout: parseInt(config.DB_CONNECT_TIMEOUT) || 10000,
+
+        // ✅ 关键修复：空闲连接超时配置
+        // 当连接空闲超过此时间，连接池会自动关闭它
+        // 设置为小于 MySQL wait_timeout（默认8小时=28800秒）
+        // 这样连接池会主动关闭空闲连接，避免使用已被MySQL服务器关闭的失效连接
+        idleTimeout: 60000, // 60秒空闲后关闭连接（mysql2 v3.0+）
+
+        // ✅ 连接最大生命周期（防止连接老化）
+        maxIdle: 10, // 最大空闲连接数
 
         // 性能优化
         multipleStatements: true, // 支持多语句执行（事务需要）
@@ -200,8 +209,11 @@ class DatabasePoolManager {
         queueLimit: 0,
         waitForConnections: true,
         enableKeepAlive: true,
-        keepAliveInitialDelay: 0,
+        keepAliveInitialDelay: 10000,
         connectTimeout: 10000,
+        // ✅ 空闲连接超时和最大空闲数配置
+        idleTimeout: 60000,
+        maxIdle: 10,
         multipleStatements: true,
         namedPlaceholders: false,
         dateStrings: true,
