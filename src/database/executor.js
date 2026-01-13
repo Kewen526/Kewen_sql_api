@@ -47,6 +47,8 @@ async function executeTransaction(datasourceId, sqlList, requestParams, retryCou
 
   try {
     connection = await pool.getConnection();
+    // 显式设置 collation，确保与数据库表一致（防止 resetConnection 重置后失效）
+    await connection.execute("SET NAMES utf8mb4 COLLATE utf8mb4_0900_ai_ci");
   } catch (error) {
     // 连接获取失败，重试
     if (retryCount < 2) {
@@ -132,6 +134,8 @@ async function executeNonTransaction(datasourceId, sqlList, requestParams, retry
 
   try {
     connection = await pool.getConnection();  // ✅ 获取一个连接
+    // 显式设置 collation，确保与数据库表一致（防止 resetConnection 重置后失效）
+    await connection.execute("SET NAMES utf8mb4 COLLATE utf8mb4_0900_ai_ci");
   } catch (error) {
     // 连接获取失败，可能是连接池问题
     if (retryCount < 2) {
