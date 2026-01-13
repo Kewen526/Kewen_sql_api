@@ -55,6 +55,7 @@ class DatabasePoolManager {
 
         // 字符集
         charset: 'utf8mb4',
+        collation: 'utf8mb4_0900_ai_ci', // 匹配数据库表的排序规则，避免中文乱码
         timezone: '+08:00', // 东八区
 
         // 类型转换：修复用户变量返回Buffer的问题
@@ -218,6 +219,7 @@ class DatabasePoolManager {
         namedPlaceholders: false,
         dateStrings: true,
         charset: 'utf8mb4',
+        collation: 'utf8mb4_0900_ai_ci', // 匹配数据库表的排序规则，避免中文乱码
         timezone: '+08:00',
 
         // 类型转换：修复用户变量返回Buffer的问题
