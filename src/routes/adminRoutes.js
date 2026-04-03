@@ -27,6 +27,7 @@ export function registerAdminRoutes(fastify) {
 
   fastify.get('/admin', {
     schema: { summary: '管理界面', tags: ['Admin'] },
+    config: { compress: false },
     handler: async (request, reply) => {
       try {
         const html = await readFile(adminHtmlPath, 'utf-8');
