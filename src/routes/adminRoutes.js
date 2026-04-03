@@ -28,21 +28,36 @@ export function registerAdminRoutes(fastify) {
         const apis = await configManager.getAllApis();
 
         // 返回完整数据，包含所有 SQL
-        const fullApis = apis.map(api => ({
-          id: api.id,
-          name: api.name,
-          path: api.path,
-          note: api.note,
-          contentType: api.contentType,
-          groupId: api.groupId,
-          params: api.paramsParsed,
-          datasourceId: api.datasourceId,
-          transaction: api.transaction,
-          sqlList: api.sqlList,  // 完整的 SQL 列表
-          status: api.status,
-          createTime: api.createTime,
-          updateTime: api.updateTime
-        }));
+        const fullApis = apis.map(api => {
+          const taskType = api.taskParsed?.[0]?.taskType || 1;
+          const base = {
+            id: api.id,
+            name: api.name,
+            path: api.path,
+            note: api.note,
+            contentType: api.contentType,
+            groupId: api.groupId,
+            params: api.paramsParsed,
+            taskType: taskType,
+            status: api.status,
+            createTime: api.createTime,
+            updateTime: api.updateTime
+          };
+
+          if (taskType === 2) {
+            // 代理转发类型
+            base.targetUrl = api.taskParsed[0].targetUrl;
+            base.targetMethod = api.taskParsed[0].method;
+            base.targetContentType = api.taskParsed[0].targetContentType;
+          } else {
+            // SQL执行类型
+            base.datasourceId = api.datasourceId;
+            base.transaction = api.transaction;
+            base.sqlList = api.sqlList;
+          }
+
+          return base;
+        });
 
         return {
           success: true,
@@ -111,19 +126,27 @@ export function registerAdminRoutes(fastify) {
       tags: ['Admin'],
       body: {
         type: 'object',
-        required: ['name', 'path', 'groupId', 'datasourceId'],
+        required: ['name', 'path', 'groupId'],
         properties: {
           name: { type: 'string' },
           path: { type: 'string' },
           note: { type: 'string' },
           contentType: { type: 'string' },
           groupId: { type: 'string' },
+          // SQL执行类型参数
           datasourceId: { type: 'string' },
           sqlText: { type: 'string' },
           sqlList: { type: 'array' },
           params: { type: 'array' },
           testParams: { type: 'object' },
-          transaction: { type: 'number' }
+          transaction: { type: 'number' },
+          // 代理转发类型参数 (taskType=2)
+          taskType: { type: 'number' },
+          targetUrl: { type: 'string' },
+          targetMethod: { type: 'string' },
+          targetContentType: { type: 'string' },
+          targetHeaders: { type: 'object' },
+          targetTimeout: { type: 'number' }
         }
       }
     },

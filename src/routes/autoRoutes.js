@@ -7,6 +7,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { executeApiTask } from '../database/executor.js';
+import { executeProxyTask } from '../database/proxyExecutor.js';
 import { validateParams, mergeParams } from '../database/queryParser.js';
 
 // 配置缓存
@@ -154,14 +155,24 @@ export async function registerAutoRoutes(fastify, configPath) {
         });
       }
 
-      // 执行SQL任务
-      const result = await executeApiTask(api.task, requestParams);
+      // 判断任务类型并执行
+      const tasks = typeof api.task === 'string' ? JSON.parse(api.task) : api.task;
+      const taskType = tasks[0]?.taskType;
 
-      // 返回结果
-      return reply.send({
-        success: true,
-        data: result
-      });
+      let result;
+      if (taskType === 2) {
+        // 代理转发任务
+        result = await executeProxyTask(tasks[0], requestParams);
+        // 代理转发直接返回目标服务的原始响应
+        return reply.send(result);
+      } else {
+        // SQL执行任务（默认）
+        result = await executeApiTask(api.task, requestParams);
+        return reply.send({
+          success: true,
+          data: result
+        });
+      }
 
     } catch (error) {
       console.error(`❌ API执行失败 [/${requestPath}]:`, error.message);
