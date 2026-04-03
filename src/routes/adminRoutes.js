@@ -30,7 +30,7 @@ export function registerAdminRoutes(fastify) {
     handler: async (request, reply) => {
       try {
         const html = await readFile(adminHtmlPath, 'utf-8');
-        reply.type('text/html').send(html);
+        reply.type('text/html; charset=utf-8').send(html);
       } catch (error) {
         reply.code(500).send('管理页面加载失败: ' + error.message);
       }
