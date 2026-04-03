@@ -85,6 +85,14 @@ class ConfigManager {
    * @param {string} apiData.note - 说明
    * @param {Array} apiData.params - 参数列表
    * @param {Object} apiData.testParams - 测试参数（JSON对象）
+   *
+   * 代理转发类型额外参数：
+   * @param {number} apiData.taskType - 任务类型 (1=SQL执行, 2=代理转发)
+   * @param {string} apiData.targetUrl - 代理目标URL（taskType=2时必填）
+   * @param {string} apiData.targetMethod - 代理目标HTTP方法（默认POST）
+   * @param {string} apiData.targetContentType - 代理目标Content-Type
+   * @param {Object} apiData.targetHeaders - 代理目标额外请求头
+   * @param {number} apiData.targetTimeout - 代理目标超时时间(ms)
    */
   async createApi(apiData) {
     const config = await this._readConfig();
@@ -98,22 +106,42 @@ class ConfigManager {
     // 生成新的 ID
     const newId = this._generateId();
 
-    // 处理 SQL 列表
-    const sqlList = (apiData.sqlList || []).map(sql => ({
-      transformPlugin: null,
-      transformPluginParam: null,
-      sqlText: sql.sqlText || sql,
-      id: sql.id || this._generateId()
-    }));
-
-    // 如果没有提供 sqlList，但提供了 sqlText，使用单个 SQL
-    if (sqlList.length === 0 && apiData.sqlText) {
-      sqlList.push({
+    // 根据任务类型构建 task
+    let task;
+    if (apiData.taskType === 2) {
+      // 代理转发任务
+      task = [{
+        taskType: 2,
+        targetUrl: apiData.targetUrl,
+        method: apiData.targetMethod || 'POST',
+        targetContentType: apiData.targetContentType || apiData.contentType || 'application/json',
+        headers: apiData.targetHeaders || {},
+        timeout: apiData.targetTimeout || 30000
+      }];
+    } else {
+      // SQL执行任务（默认）
+      const sqlList = (apiData.sqlList || []).map(sql => ({
         transformPlugin: null,
         transformPluginParam: null,
-        sqlText: apiData.sqlText,
-        id: this._generateId()
-      });
+        sqlText: sql.sqlText || sql,
+        id: sql.id || this._generateId()
+      }));
+
+      if (sqlList.length === 0 && apiData.sqlText) {
+        sqlList.push({
+          transformPlugin: null,
+          transformPluginParam: null,
+          sqlText: apiData.sqlText,
+          id: this._generateId()
+        });
+      }
+
+      task = [{
+        taskType: 1,
+        datasourceId: apiData.datasourceId,
+        sqlList: sqlList,
+        transaction: apiData.transaction ? 1 : 0
+      }];
     }
 
     const newApi = {
@@ -137,12 +165,7 @@ class ConfigManager {
       paramsJson: null,
       path: apiData.path,
       status: 1,
-      task: JSON.stringify([{
-        taskType: 1,
-        datasourceId: apiData.datasourceId,
-        sqlList: sqlList,
-        transaction: apiData.transaction ? 1 : 0
-      }]),
+      task: JSON.stringify(task),
       taskJson: null,
       testParams: apiData.testParams ? JSON.stringify(apiData.testParams) : null,
       transformScript: null,
