@@ -10,6 +10,9 @@ import poolManager from '../database/pool.js';
 import routeReloader from '../utils/routeReloader.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import { readFile } from 'fs/promises';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 
 const execAsync = promisify(exec);
 
@@ -17,6 +20,23 @@ const execAsync = promisify(exec);
  * 注册管理路由
  */
 export function registerAdminRoutes(fastify) {
+  // 管理界面 HTML 页面
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = dirname(__filename);
+  const adminHtmlPath = join(__dirname, '../../admin.html');
+
+  fastify.get('/admin', {
+    schema: { summary: '管理界面', tags: ['Admin'] },
+    handler: async (request, reply) => {
+      try {
+        const html = await readFile(adminHtmlPath, 'utf-8');
+        reply.type('text/html').send(html);
+      } catch (error) {
+        reply.code(500).send('管理页面加载失败: ' + error.message);
+      }
+    }
+  });
+
   // 获取所有 API 列表
   fastify.get('/admin/apis', {
     schema: {
@@ -36,9 +56,13 @@ export function registerAdminRoutes(fastify) {
           contentType: api.contentType,
           groupId: api.groupId,
           params: api.paramsParsed,
+          taskType: api.taskType || 1,
           datasourceId: api.datasourceId,
           transaction: api.transaction,
-          sqlList: api.sqlList,  // 完整的 SQL 列表
+          sqlList: api.sqlList,
+          proxyUrl: api.proxyUrl || null,
+          proxyPath: api.proxyPath || null,
+          proxyMethod: api.proxyMethod || null,
           status: api.status,
           createTime: api.createTime,
           updateTime: api.updateTime
@@ -86,10 +110,14 @@ export function registerAdminRoutes(fastify) {
             contentType: api.contentType,
             groupId: api.groupId,
             params: api.paramsParsed || [],
+            taskType: api.taskType || 1,
             datasourceId: api.datasourceId,
             transaction: api.transaction,
-            sqlList: api.sqlList || [],  // ✅ 返回完整的 SQL 列表
-            testParams: api.testParamsParsed || {},  // ✅ 返回测试参数
+            sqlList: api.sqlList || [],
+            proxyUrl: api.proxyUrl || null,
+            proxyPath: api.proxyPath || null,
+            proxyMethod: api.proxyMethod || null,
+            testParams: api.testParamsParsed || {},
             status: api.status,
             createTime: api.createTime,
             updateTime: api.updateTime

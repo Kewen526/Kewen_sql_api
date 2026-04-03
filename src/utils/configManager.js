@@ -35,9 +35,13 @@ class ConfigManager {
             taskParsed: parsedTask,
             paramsParsed: parsedParams,
             // 兼容性：提取第一个 task 的信息作为主要信息
+            taskType: parsedTask[0]?.taskType || 1,
             datasourceId: parsedTask[0]?.datasourceId || null,
             transaction: parsedTask[0]?.transaction || 0,
-            sqlList: parsedTask[0]?.sqlList || []
+            sqlList: parsedTask[0]?.sqlList || [],
+            proxyUrl: parsedTask[0]?.proxyUrl || null,
+            proxyPath: parsedTask[0]?.proxyPath || null,
+            proxyMethod: parsedTask[0]?.proxyMethod || null
           };
         } catch (e) {
           console.error(`解析 API ${api.id} 失败:`, e);
@@ -98,22 +102,38 @@ class ConfigManager {
     // 生成新的 ID
     const newId = this._generateId();
 
-    // 处理 SQL 列表
-    const sqlList = (apiData.sqlList || []).map(sql => ({
-      transformPlugin: null,
-      transformPluginParam: null,
-      sqlText: sql.sqlText || sql,
-      id: sql.id || this._generateId()
-    }));
-
-    // 如果没有提供 sqlList，但提供了 sqlText，使用单个 SQL
-    if (sqlList.length === 0 && apiData.sqlText) {
-      sqlList.push({
+    // 构建 task
+    let taskConfig;
+    if (apiData.taskType === 2) {
+      // HTTP 代理类型
+      taskConfig = [{
+        taskType: 2,
+        proxyUrl: apiData.proxyUrl,
+        proxyPath: apiData.proxyPath,
+        proxyMethod: apiData.proxyMethod || 'POST'
+      }];
+    } else {
+      // SQL 类型
+      const sqlList = (apiData.sqlList || []).map(sql => ({
         transformPlugin: null,
         transformPluginParam: null,
-        sqlText: apiData.sqlText,
-        id: this._generateId()
-      });
+        sqlText: sql.sqlText || sql,
+        id: sql.id || this._generateId()
+      }));
+      if (sqlList.length === 0 && apiData.sqlText) {
+        sqlList.push({
+          transformPlugin: null,
+          transformPluginParam: null,
+          sqlText: apiData.sqlText,
+          id: this._generateId()
+        });
+      }
+      taskConfig = [{
+        taskType: 1,
+        datasourceId: apiData.datasourceId,
+        sqlList: sqlList,
+        transaction: apiData.transaction ? 1 : 0
+      }];
     }
 
     const newApi = {
@@ -128,7 +148,7 @@ class ConfigManager {
       globalTransformPlugin: null,
       graphData: null,
       groupId: apiData.groupId,
-      jsonParam: null,
+      jsonParam: apiData.jsonParam || null,
       name: apiData.name,
       note: apiData.note || apiData.name,
       paramProcessPlugin: null,
@@ -137,12 +157,7 @@ class ConfigManager {
       paramsJson: null,
       path: apiData.path,
       status: 1,
-      task: JSON.stringify([{
-        taskType: 1,
-        datasourceId: apiData.datasourceId,
-        sqlList: sqlList,
-        transaction: apiData.transaction ? 1 : 0
-      }]),
+      task: JSON.stringify(taskConfig),
       taskJson: null,
       testParams: apiData.testParams ? JSON.stringify(apiData.testParams) : null,
       transformScript: null,
@@ -193,19 +208,26 @@ class ConfigManager {
       updateTime: new Date().toISOString().replace('T', ' ').substring(0, 19)
     };
 
-    // 更新 Task 和 SQL
-    if (apiData.datasourceId !== undefined ||
+    // 更新 Task
+    if (apiData.taskType === 2) {
+      // HTTP 代理类型
+      const taskConfig = [{
+        taskType: 2,
+        proxyUrl: apiData.proxyUrl,
+        proxyPath: apiData.proxyPath,
+        proxyMethod: apiData.proxyMethod || 'POST'
+      }];
+      config.api[index].task = JSON.stringify(taskConfig);
+    } else if (apiData.datasourceId !== undefined ||
         apiData.transaction !== undefined ||
         apiData.sqlList ||
         apiData.sqlText) {
-
+      // SQL 类型
       const task = existingTask[0] || { taskType: 1, sqlList: [] };
-
-      // 更新数据源和事务
+      task.taskType = 1;
       task.datasourceId = apiData.datasourceId !== undefined ? apiData.datasourceId : task.datasourceId;
       task.transaction = apiData.transaction !== undefined ? (apiData.transaction ? 1 : 0) : task.transaction;
 
-      // 更新 SQL 列表
       if (apiData.sqlList) {
         task.sqlList = apiData.sqlList.map(sql => ({
           transformPlugin: null,
@@ -214,7 +236,6 @@ class ConfigManager {
           id: sql.id || this._generateId()
         }));
       } else if (apiData.sqlText) {
-        // 兼容单个 SQL 的情况：更新第一个 SQL
         if (task.sqlList && task.sqlList[0]) {
           task.sqlList[0].sqlText = apiData.sqlText;
         } else {

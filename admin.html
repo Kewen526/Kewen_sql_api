@@ -638,36 +638,77 @@
               </select>
             </div>
             <div class="form-group">
-              <label>数据源 *</label>
-              <select id="apiDatasource" required>
-                <option value="">选择数据源</option>
+              <label>API 类型 *</label>
+              <select id="apiTaskType" onchange="toggleApiType()">
+                <option value="1">SQL 查询</option>
+                <option value="2">HTTP 代理转发</option>
               </select>
             </div>
           </div>
 
-          <div class="form-row">
-            <div class="form-group">
-              <label>Content-Type</label>
-              <select id="apiContentType">
-                <option value="application/json">application/json</option>
-                <option value="application/x-www-form-urlencoded">application/x-www-form-urlencoded</option>
-              </select>
+          <!-- SQL 类型字段 -->
+          <div id="sqlTypeFields">
+            <div class="form-row">
+              <div class="form-group">
+                <label>数据源 *</label>
+                <select id="apiDatasource">
+                  <option value="">选择数据源</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Content-Type</label>
+                <select id="apiContentType">
+                  <option value="application/json">application/json</option>
+                  <option value="application/x-www-form-urlencoded">application/x-www-form-urlencoded</option>
+                </select>
+              </div>
             </div>
             <div class="form-group">
-              <label style="display: flex; align-items: center; gap: 8px; margin-top: 28px;">
+              <label style="display: flex; align-items: center; gap: 8px;">
                 <input type="checkbox" id="apiTransaction">
                 启用事务
               </label>
             </div>
+            <div class="sql-tabs">
+              <div class="sql-tabs-header" id="sqlTabsHeader">
+              </div>
+              <div id="sqlTabsContent">
+              </div>
+            </div>
           </div>
 
-          <!-- SQL 标签页 -->
-          <div class="sql-tabs">
-            <div class="sql-tabs-header" id="sqlTabsHeader">
-              <!-- SQL 标签将动态生成 -->
+          <!-- HTTP 代理类型字段 -->
+          <div id="proxyTypeFields" style="display: none;">
+            <div class="form-row">
+              <div class="form-group">
+                <label>代理目标地址 *</label>
+                <input type="text" id="proxyUrl" placeholder="例如：https://keepkeer.cn">
+              </div>
+              <div class="form-group">
+                <label>代理路径 *</label>
+                <input type="text" id="proxyPath" placeholder="例如：api/external/create-offer">
+              </div>
             </div>
-            <div id="sqlTabsContent">
-              <!-- SQL 内容将动态生成 -->
+            <div class="form-row">
+              <div class="form-group">
+                <label>请求方法</label>
+                <select id="proxyMethod">
+                  <option value="POST">POST</option>
+                  <option value="GET">GET</option>
+                  <option value="PUT">PUT</option>
+                  <option value="DELETE">DELETE</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Content-Type</label>
+                <select id="proxyContentType">
+                  <option value="application/json">application/json</option>
+                  <option value="application/x-www-form-urlencoded">application/x-www-form-urlencoded</option>
+                </select>
+              </div>
+            </div>
+            <div style="background: #e8f4fd; border: 1px solid #b8daff; border-radius: 6px; padding: 12px; margin-bottom: 15px;">
+              <small style="color: #004085;">此接口为 HTTP 代理转发，请求将直接转发到目标服务器。</small>
             </div>
           </div>
 
@@ -900,7 +941,7 @@
   </div>
 
   <script>
-    const API_BASE = 'http://47.104.72.198:3000';
+    const API_BASE = window.location.origin;
     let allApis = [];
     let groups = [];
     let datasources = [];
@@ -1054,9 +1095,9 @@
               <tr>
                 <td><strong>${api.name}</strong></td>
                 <td><span class="code">${api.path}</span></td>
-                <td><span class="badge badge-post">${api.sqlList?.length || 0} 个 SQL</span></td>
+                <td>${api.taskType === 2 ? '<span class="badge" style="background:#17a2b8;color:#fff;">HTTP代理</span>' : '<span class="badge badge-post">' + (api.sqlList?.length || 0) + ' 个 SQL</span>'}</td>
                 <td><span class="badge badge-group-${getGroupIndex(api.groupId)}">${getGroupName(api.groupId)}</span></td>
-                <td>${api.datasourceId}</td>
+                <td>${api.taskType === 2 ? (api.proxyUrl || '-') : (api.datasourceId || '-')}</td>
                 <td>${api.note || '-'}</td>
                 <td class="actions">
                   <button class="btn btn-primary btn-sm" onclick="editApi('${api.id}')">✏️ 编辑</button>
@@ -1099,11 +1140,27 @@
       await loadApis();
     }
 
+    // 切换 API 类型（SQL vs 代理）
+    function toggleApiType() {
+      const taskType = document.getElementById('apiTaskType').value;
+      const sqlFields = document.getElementById('sqlTypeFields');
+      const proxyFields = document.getElementById('proxyTypeFields');
+      if (taskType === '2') {
+        sqlFields.style.display = 'none';
+        proxyFields.style.display = 'block';
+      } else {
+        sqlFields.style.display = 'block';
+        proxyFields.style.display = 'none';
+      }
+    }
+
     // 打开创建 Modal
     function openCreateModal() {
       document.getElementById('modalTitle').textContent = '创建新 API';
       document.getElementById('apiForm').reset();
       document.getElementById('apiId').value = '';
+      document.getElementById('apiTaskType').value = '1';
+      toggleApiType();
 
       // 初始化一个空的 SQL 标签
       currentSqlTabs = [{
@@ -1135,9 +1192,21 @@
         document.getElementById('apiPath').value = api.path;
         document.getElementById('apiNote').value = api.note || '';
         document.getElementById('apiGroup').value = api.groupId;
-        document.getElementById('apiDatasource').value = api.datasourceId;
-        document.getElementById('apiContentType').value = api.contentType || 'application/json';
-        document.getElementById('apiTransaction').checked = api.transaction === 1;
+        // 设置 API 类型
+        const taskType = api.taskType || 1;
+        document.getElementById('apiTaskType').value = taskType;
+        toggleApiType();
+
+        if (taskType === 2) {
+          document.getElementById('proxyUrl').value = api.proxyUrl || '';
+          document.getElementById('proxyPath').value = api.proxyPath || '';
+          document.getElementById('proxyMethod').value = api.proxyMethod || 'POST';
+          document.getElementById('proxyContentType').value = api.contentType || 'application/json';
+        } else {
+          document.getElementById('apiDatasource').value = api.datasourceId;
+          document.getElementById('apiContentType').value = api.contentType || 'application/json';
+          document.getElementById('apiTransaction').checked = api.transaction === 1;
+        }
 
         // 加载 SQL 标签
         currentSqlTabs = api.sqlList && api.sqlList.length > 0 ? api.sqlList : [{
@@ -1254,15 +1323,13 @@
       const path = document.getElementById('apiPath').value;
       const note = document.getElementById('apiNote').value;
       const groupId = document.getElementById('apiGroup').value;
-      const datasourceId = document.getElementById('apiDatasource').value;
-      const contentType = document.getElementById('apiContentType').value;
-      const isTransaction = document.getElementById('apiTransaction').checked;
+      const taskType = parseInt(document.getElementById('apiTaskType').value);
       const paramsText = document.getElementById('apiParams').value;
       const testParamsText = document.getElementById('apiTestParams').value;
 
-      // 验证必填字段
-      if (!name || !path || !groupId || !datasourceId) {
-        alert('请填写所有必填字段');
+      // 验证基础必填字段
+      if (!name || !path || !groupId) {
+        alert('请填写所有必填字段（名称、路径、分组）');
         return;
       }
 
@@ -1273,44 +1340,59 @@
         return;
       }
 
-      // 验证至少有一个 SQL
-      if (currentSqlTabs.length === 0 || !currentSqlTabs[0].sqlText.trim()) {
-        alert('请至少填写一个 SQL 语句');
-        return;
+      let apiData;
+
+      if (taskType === 2) {
+        // HTTP 代理类型
+        const proxyUrl = document.getElementById('proxyUrl').value;
+        const proxyPath = document.getElementById('proxyPath').value;
+        const proxyMethod = document.getElementById('proxyMethod').value;
+        const contentType = document.getElementById('proxyContentType').value;
+
+        if (!proxyUrl || !proxyPath) {
+          alert('请填写代理目标地址和代理路径');
+          return;
+        }
+
+        apiData = { name, path, note, groupId, contentType, taskType: 2, proxyUrl, proxyPath, proxyMethod };
+      } else {
+        // SQL 类型
+        const datasourceId = document.getElementById('apiDatasource').value;
+        const contentType = document.getElementById('apiContentType').value;
+        const isTransaction = document.getElementById('apiTransaction').checked;
+
+        if (!datasourceId) {
+          alert('请选择数据源');
+          return;
+        }
+        if (currentSqlTabs.length === 0 || !currentSqlTabs[0].sqlText.trim()) {
+          alert('请至少填写一个 SQL 语句');
+          return;
+        }
+
+        apiData = {
+          name, path, note, groupId, contentType, datasourceId,
+          transaction: isTransaction ? 1 : 0,
+          sqlList: currentSqlTabs.map(tab => ({ id: tab.id, sqlText: tab.sqlText }))
+        };
       }
 
       // 解析参数
       const params = paramsText.trim() ? paramsText.split('\n').map(line => {
-        const [name, type, note] = line.split(':').map(s => s.trim());
-        return { name, type, note: note || '' };
+        const [pName, type, pNote] = line.split(':').map(s => s.trim());
+        return { name: pName, type, note: pNote || '' };
       }) : [];
+      apiData.params = params;
 
       // 解析测试参数
-      let testParams = {};
       if (testParamsText.trim()) {
         try {
-          testParams = JSON.parse(testParamsText);
+          apiData.testParams = JSON.parse(testParamsText);
         } catch (e) {
           alert('❌ 测试参数 JSON 格式错误: ' + e.message);
           return;
         }
       }
-
-      const apiData = {
-        name,
-        path,
-        note,
-        groupId,
-        datasourceId,
-        contentType,
-        transaction: isTransaction ? 1 : 0,
-        params,
-        testParams,
-        sqlList: currentSqlTabs.map(tab => ({
-          id: tab.id,
-          sqlText: tab.sqlText
-        }))
-      };
 
       try {
         const url = id ? `${API_BASE}/admin/apis/${id}` : `${API_BASE}/admin/apis`;
