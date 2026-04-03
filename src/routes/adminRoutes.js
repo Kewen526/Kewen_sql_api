@@ -90,26 +90,36 @@ export function registerAdminRoutes(fastify) {
           });
         }
 
-        // getApiById 已经返回解析后的数据（包含 sqlList, datasourceId, transaction 等）
-        return {
-          success: true,
-          data: {
-            id: api.id,
-            name: api.name,
-            path: api.path,
-            note: api.note,
-            contentType: api.contentType,
-            groupId: api.groupId,
-            params: api.paramsParsed || [],
-            datasourceId: api.datasourceId,
-            transaction: api.transaction,
-            sqlList: api.sqlList || [],  // ✅ 返回完整的 SQL 列表
-            testParams: api.testParamsParsed || {},  // ✅ 返回测试参数
-            status: api.status,
-            createTime: api.createTime,
-            updateTime: api.updateTime
-          }
+        // 判断任务类型
+        const taskType = api.taskParsed?.[0]?.taskType || 1;
+        const data = {
+          id: api.id,
+          name: api.name,
+          path: api.path,
+          note: api.note,
+          contentType: api.contentType,
+          groupId: api.groupId,
+          params: api.paramsParsed || [],
+          taskType: taskType,
+          testParams: api.testParamsParsed || {},
+          status: api.status,
+          createTime: api.createTime,
+          updateTime: api.updateTime
         };
+
+        if (taskType === 2) {
+          // 代理转发类型
+          data.targetUrl = api.taskParsed[0].targetUrl;
+          data.targetMethod = api.taskParsed[0].method || 'POST';
+          data.targetContentType = api.taskParsed[0].targetContentType || 'application/json';
+        } else {
+          // SQL执行类型
+          data.datasourceId = api.datasourceId;
+          data.transaction = api.transaction;
+          data.sqlList = api.sqlList || [];
+        }
+
+        return { success: true, data };
       } catch (error) {
         return reply.code(500).send({
           success: false,

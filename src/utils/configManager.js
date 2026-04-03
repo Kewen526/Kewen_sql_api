@@ -216,12 +216,23 @@ class ConfigManager {
       updateTime: new Date().toISOString().replace('T', ' ').substring(0, 19)
     };
 
-    // 更新 Task 和 SQL
-    if (apiData.datasourceId !== undefined ||
+    // 更新 Task
+    if (apiData.taskType === 2) {
+      // 代理转发任务：完整替换 task
+      const proxyTask = {
+        taskType: 2,
+        targetUrl: apiData.targetUrl,
+        method: apiData.targetMethod || 'POST',
+        targetContentType: apiData.targetContentType || apiData.contentType || 'application/json',
+        headers: apiData.targetHeaders || {},
+        timeout: apiData.targetTimeout || 30000
+      };
+      config.api[index].task = JSON.stringify([proxyTask]);
+    } else if (apiData.datasourceId !== undefined ||
         apiData.transaction !== undefined ||
         apiData.sqlList ||
         apiData.sqlText) {
-
+      // SQL执行任务
       const task = existingTask[0] || { taskType: 1, sqlList: [] };
 
       // 更新数据源和事务
